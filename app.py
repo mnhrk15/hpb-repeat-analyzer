@@ -35,23 +35,24 @@ os.makedirs(app.config['PROCESSED_DATA_FOLDER'], exist_ok=True)
 
 def cleanup_session_files():
     """セッションに関連する一時ファイルを削除する"""
-    processed_data_path = session.get('processed_data_path')
-    if processed_data_path and os.path.exists(processed_data_path):
-        try:
-            os.remove(processed_data_path)
-            app.logger.info(f"古い一時ファイルを削除しました: {processed_data_path}")
-        except OSError as e:
-            app.logger.error(f"一時ファイルの削除に失敗しました: {processed_data_path},エラー: {e}")
+    paths_to_clean = ['processed_data_path', 'analysis_results_path']
+    for key in paths_to_clean:
+        file_path = session.get(key)
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                app.logger.info(f"古い一時ファイルを削除しました: {file_path} (key: {key})")
+            except OSError as e:
+                app.logger.error(f"一時ファイルの削除に失敗しました: {file_path},エラー: {e}")
 
 @app.route('/')
 def index():
     """メインページ - ファイルアップロードと設定画面"""
-    # 新しい分析を開始する前に、関連するセッションデータと一時ファイルをクリーンアップ
     cleanup_session_files()
     session.pop('processed_data_path', None)
+    session.pop('analysis_results_path', None)
     session.pop('min_date', None)
     session.pop('max_date', None)
-    session.pop('analysis_results', None)
     session.pop('analysis_parameters', None)
     session.pop('analysis_performed', None)
     return render_template('index.html')
@@ -101,6 +102,16 @@ def upload_files():
         #     if os.path.exists(p):
         #         os.remove(p)
 
+        # アップロード成功時に analysis_results_path が残っていればクリア
+        if session.get('analysis_results_path'):
+            if os.path.exists(session['analysis_results_path']):
+                try:
+                    os.remove(session['analysis_results_path'])
+                    app.logger.info(f"アップロード時に古い分析結果ファイルを削除: {session['analysis_results_path']}")
+                except OSError as e:
+                    app.logger.error(f"アップロード時の古い分析結果ファイル削除失敗: {session['analysis_results_path']}, エラー: {e}")
+            session.pop('analysis_results_path', None)
+
         return jsonify({
             'success': True,
             'message': f'{len(file_paths)}個のCSVファイルを読み込み、処理しました',
@@ -141,7 +152,7 @@ def analyze_data():
         min_coupon_customers = int(request.json.get('min_coupon_customers', 5))
         
         analyzer = RepeatAnalyzer()
-        analysis_results = analyzer.analyze_repeat_customers(
+        analysis_results_data = analyzer.analyze_repeat_customers(
             raw_data,
             new_customer_start,
             new_customer_end,
@@ -152,7 +163,14 @@ def analyze_data():
             target_rates=TARGET_RATES
         )
         
-        session['analysis_results'] = analysis_results
+        # 分析結果を一時ファイルに保存
+        analysis_results_filename = f"{uuid.uuid4().hex}_analysis.pkl"
+        analysis_results_path = os.path.join(app.config['PROCESSED_DATA_FOLDER'], analysis_results_filename)
+        with open(analysis_results_path, 'wb') as f:
+            pickle.dump(analysis_results_data, f)
+            
+        session['analysis_results_path'] = analysis_results_path
+        
         session['analysis_parameters'] = {
             'new_customer_start': new_customer_start,
             'new_customer_end': new_customer_end,
@@ -179,57 +197,28 @@ def dashboard():
     """ダッシュボード画面"""
     if not session.get('analysis_performed', False):
         app.logger.warning("ダッシュボードアクセス試行: 分析が実行されていません。")
-        # flashメッセージを追加してindexにリダイレクトすることも検討
         return redirect(url_for('index'))
 
     try:
-        analysis_results = session.get('analysis_results')
+        analysis_results_path = session.get('analysis_results_path')
         analysis_parameters = session.get('analysis_parameters')
 
-        if not analysis_results or not analysis_parameters:
-            app.logger.error("ダッシュボード表示エラー: セッションに分析結果またはパラメータがありません。")
+        if not analysis_results_path or not os.path.exists(analysis_results_path) or not analysis_parameters:
+            app.logger.error("ダッシュボード表示エラー: セッションに分析結果パスまたはパラメータがありません。")
             return render_template('error.html', message='分析データがセッションに見つかりません。再分析してください。')
         
+        with open(analysis_results_path, 'rb') as f:
+            analysis_results = pickle.load(f)
+            
         visualizer = DashboardVisualizer()
         dashboard_data = visualizer.generate_dashboard_data(analysis_results)
         
-        # ログ出力は開発時には有用だが、本番では必要に応じて調整
-        # app.logger.info(f"Dashboard Parameters: {json.dumps(analysis_parameters, indent=2, ensure_ascii=False)}")
-        # (dashboard_dataのログも同様)
-
         return render_template('dashboard.html', 
                              data=dashboard_data,
                              parameters=analysis_parameters)
     except Exception as e:
         app.logger.error(f"ダッシュボード表示エラー: {traceback.format_exc()}")
         return render_template('error.html', message=f'ダッシュボード表示中にエラーが発生しました: {str(e)}')
-
-@app.route('/api/chart/<chart_type>')
-def get_chart_data(chart_type):
-    """チャートデータAPI (このAPIは現在フロントエンドから直接は呼ばれていないが、将来的な拡張性のために残すか検討)"""
-    # このAPIがまだ使われているか確認。もしdashboard.htmlのJavaScriptが
-    # 全てのチャートデータを initial data load で受け取っているなら、このAPIは不要かもしれない。
-    # 現在の実装では dashboard_data に全て含まれているため、このAPIは不要になっている可能性が高い。
-    # 今回はコメントアウトせず残すが、利用状況に応じて削除を検討。
-    if not session.get('analysis_performed', False):
-        return jsonify({'error': '分析が実行されていません'}), 403 # 403 Forbidden の方が適切かも
-
-    analysis_results = session.get('analysis_results')
-    if not analysis_results:
-        return jsonify({'error': '分析データがありません'}), 400
-    
-    try:
-        visualizer = DashboardVisualizer()
-        # get_chart_data メソッドが DashboardVisualizer に存在するか確認が必要。
-        # generate_dashboard_data で全データ生成しているので、特定のチャートタイプだけを
-        # 取り出すロジックがここにあるのは冗長かもしれない。
-        # 仮に DashboardVisualizer.get_chart_data が存在すると仮定して進める。
-        # もし存在しないか、使われていないなら、このルート自体を削除検討。
-        chart_data = visualizer.get_chart_data(chart_type, analysis_results) # このメソッドの存在確認
-        return jsonify(chart_data)
-    except Exception as e:
-        app.logger.error(f"チャートデータAPIエラー ({chart_type}): {traceback.format_exc()}")
-        return jsonify({'error': f'チャートデータ取得エラー: {str(e)}'}), 500
 
 @app.route('/report')
 def generate_report():
@@ -239,13 +228,16 @@ def generate_report():
         return render_template('error.html', message='レポートを生成するには、まず分析を実行してください。')
 
     try:
-        analysis_results = session.get('analysis_results')
+        analysis_results_path = session.get('analysis_results_path')
         analysis_parameters = session.get('analysis_parameters')
 
-        if not analysis_results or not analysis_parameters:
-            app.logger.error("レポート生成エラー: セッションに分析結果またはパラメータがありません。")
+        if not analysis_results_path or not os.path.exists(analysis_results_path) or not analysis_parameters:
+            app.logger.error("レポート生成エラー: セッションに分析結果パスまたはパラメータがありません。")
             return render_template('error.html', message='分析データがセッションに見つかりません。再分析してください。')
         
+        with open(analysis_results_path, 'rb') as f:
+            analysis_results = pickle.load(f)
+            
         generator = ReportGenerator()
         app.logger.info(f"レポート生成開始: parameters={json.dumps(analysis_parameters, indent=2, ensure_ascii=False)}")
         report_path = generator.generate_text_report(
@@ -265,7 +257,7 @@ def generate_report():
     
     except Exception as e:
         app.logger.error(f"レポート生成エラー: {traceback.format_exc()}")
-        return render_template('error.html', message=f'レポート生成中にエラーが発生しました: {str(e)}')
+        return render_template('error.html', error_message="レポートの生成中にエラーが発生しました。"), 500
 
 @app.errorhandler(404)
 def page_not_found(e):

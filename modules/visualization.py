@@ -52,33 +52,38 @@ class DashboardVisualizer:
     
     def _create_summary_cards(self, results: Dict) -> List[Dict]:
         """サマリーカード用データ作成"""
-        basic_stats = results['basic_stats']
-        
+        basic_stats = results.get('basic_stats', {})
+        if not basic_stats:
+            logger.warning("_create_summary_cards: basic_stats が空または存在しません。空のカードリストを返します。")
+            return []
+
+        min_repeat_count = basic_stats.get('min_repeat_count', 'X') # デフォルト'X'
+
         cards = [
             {
                 'title': '新規顧客総数',
-                'value': basic_stats['total_new_customers'],
+                'value': basic_stats.get('total_new_customers', 0),
                 'unit': '人',
                 'color': 'primary',
                 'icon': 'users'
             },
             {
-                'title': f"{basic_stats['min_repeat_count']}回以上リピーター数",
-                'value': basic_stats['x_plus_repeaters'],
+                'title': f"{min_repeat_count}回以上リピーター数",
+                'value': basic_stats.get('x_plus_repeaters', 0),
                 'unit': '人',
                 'color': 'success',
                 'icon': 'repeat'
             },
             {
-                'title': f"{basic_stats['min_repeat_count']}回以上リピート率",
-                'value': basic_stats['x_plus_rate'],
+                'title': f"{min_repeat_count}回以上リピート率",
+                'value': basic_stats.get('x_plus_rate', 0.0),
                 'unit': '%',
                 'color': 'success',
                 'icon': 'trending-up'
             },
             {
                 'title': '初回リピート率',
-                'value': basic_stats['first_repeat_rate'],
+                'value': basic_stats.get('first_repeat_rate', 0.0),
                 'unit': '%',
                 'color': 'info',
                 'icon': 'activity'
@@ -89,16 +94,32 @@ class DashboardVisualizer:
     
     def _create_funnel_charts(self, results: Dict) -> Dict:
         """ファネル分析チャート用データ作成"""
-        funnel_data = results['funnel_analysis']
-        
+        funnel_data = results.get('funnel_analysis', {})
+        if not funnel_data:
+            logger.warning("_create_funnel_charts: funnel_analysis が空または存在しません。空のチャートデータを返します。")
+            return {'stage_chart': None, 'continuation_chart': None, 'distribution_chart': None}
+
+        stages = funnel_data.get('stages', {})
+        continuation_rates = funnel_data.get('continuation_rates', {})
+        repeat_distribution = funnel_data.get('repeat_distribution', {})
+        cumulative_percentages = funnel_data.get('cumulative_percentages', {})
+
+        if not stages:
+            logger.warning("_create_funnel_charts: funnel_analysis.stages が空です。")
+            # 少なくとも stage_chart は None になるべき
+            # 他も影響を受ける可能性がある
+
         # ステージ別顧客数棒グラフ
+        stage_chart_data_values = list(stages.values()) if stages else []
+        stage_chart_labels = list(stages.keys()) if stages else []
+        
         stage_chart = {
             'type': 'bar',
             'data': {
-                'labels': list(funnel_data['stages'].keys()),
+                'labels': stage_chart_labels,
                 'datasets': [{
                     'label': '顧客数',
-                    'data': list(funnel_data['stages'].values()),
+                    'data': stage_chart_data_values,
                     'backgroundColor': self.chart_colors['primary'],
                     'borderColor': self.chart_colors['primary'],
                     'borderWidth': 1
@@ -120,10 +141,14 @@ class DashboardVisualizer:
                 }
             }
         }
-        
+        if not stage_chart_data_values: # データがなければNone
+            stage_chart = None
+            logger.warning("_create_funnel_charts: ステージ別顧客数データがないため、stage_chartはNoneになります。")
+
+
         # 継続率棒グラフ
-        continuation_labels = list(funnel_data['continuation_rates'].keys())
-        continuation_values = list(funnel_data['continuation_rates'].values())
+        continuation_labels = list(continuation_rates.keys()) if continuation_rates else []
+        continuation_values = list(continuation_rates.values()) if continuation_rates else []
         
         continuation_chart = {
             'type': 'bar',
@@ -154,65 +179,75 @@ class DashboardVisualizer:
                 }
             }
         }
+        if not continuation_values: # データがなければNone
+            continuation_chart = None
+            logger.warning("_create_funnel_charts: 継続率データがないため、continuation_chartはNoneになります。")
         
         # リピート回数分布（複合グラフ）
-        repeat_counts = list(funnel_data['repeat_distribution'].keys())
-        repeat_values = list(funnel_data['repeat_distribution'].values())
-        cumulative_values = [funnel_data['cumulative_percentages'].get(count, 0) for count in repeat_counts]
+        # repeat_distribution は {回数: 顧客数} の辞書
+        # cumulative_percentages は {回数: 累積%} の辞書
         
-        distribution_chart = {
-            'type': 'bar',
-            'data': {
-                'labels': [f"{count}回" for count in repeat_counts],
-                'datasets': [
-                    {
-                        'type': 'bar',
-                        'label': '顧客数',
-                        'data': repeat_values,
-                        'backgroundColor': self.chart_colors['info'],
-                        'borderColor': self.chart_colors['info'],
-                        'yAxisID': 'y'
-                    },
-                    {
-                        'type': 'line',
-                        'label': '累積割合 (%)',
-                        'data': cumulative_values,
-                        'borderColor': self.chart_colors['secondary'],
-                        'backgroundColor': 'transparent',
-                        'yAxisID': 'y1'
-                    }
-                ]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'title': {
-                        'display': True,
-                        'text': 'リピート回数分布と累積割合'
-                    }
+        if not repeat_distribution:
+            logger.warning("_create_funnel_charts: repeat_distribution が空です。distribution_chart は None になります。")
+            distribution_chart = None
+        else:
+            repeat_counts = sorted(list(repeat_distribution.keys())) # 回数でソート
+            repeat_values = [repeat_distribution[count] for count in repeat_counts]
+            cumulative_values = [cumulative_percentages.get(count, 0) for count in repeat_counts]
+            
+            distribution_chart = {
+                'type': 'bar',
+                'data': {
+                    'labels': [f"{count}回" for count in repeat_counts],
+                    'datasets': [
+                        {
+                            'type': 'bar',
+                            'label': '顧客数',
+                            'data': repeat_values,
+                            'backgroundColor': self.chart_colors['info'],
+                            'borderColor': self.chart_colors['info'],
+                            'yAxisID': 'y'
+                        },
+                        {
+                            'type': 'line',
+                            'label': '累積割合 (%)',
+                            'data': cumulative_values,
+                            'borderColor': self.chart_colors['secondary'],
+                            'backgroundColor': 'transparent',
+                            'yAxisID': 'y1'
+                        }
+                    ]
                 },
-                'scales': {
-                    'y': {
-                        'type': 'linear',
-                        'display': True,
-                        'position': 'left',
-                        'beginAtZero': True
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {
+                        'title': {
+                            'display': True,
+                            'text': 'リピート回数分布と累積割合'
+                        }
                     },
-                    'y1': {
-                        'type': 'linear',
-                        'display': True,
-                        'position': 'right',
-                        'beginAtZero': True,
-                        'max': 100,
-                        'grid': {
-                            'drawOnChartArea': False,
+                    'scales': {
+                        'y': {
+                            'type': 'linear',
+                            'display': True,
+                            'position': 'left',
+                            'beginAtZero': True
+                        },
+                        'y1': {
+                            'type': 'linear',
+                            'display': True,
+                            'position': 'right',
+                            'beginAtZero': True,
+                            'max': 100,
+                            'grid': {
+                                'drawOnChartArea': False,
+                            }
                         }
                     }
                 }
             }
-        }
-        
+
         return {
             'stage_chart': stage_chart,
             'continuation_chart': continuation_chart,
@@ -221,24 +256,41 @@ class DashboardVisualizer:
     
     def _create_stylist_charts(self, results: Dict) -> Dict:
         """スタイリスト分析チャート用データ作成"""
-        stylist_data = results['stylist_analysis']
+        stylist_analysis_data = results.get('stylist_analysis', {})
+        basic_stats = results.get('basic_stats', {})
+        min_repeat_count = basic_stats.get('min_repeat_count', 'X')
+        min_stylist_customers_filter = basic_stats.get('min_stylist_customers', 0) # from analysis params
+
+        # summary_info を先に構築。データがなくてもデフォルト値で安全に。
+        summary_info = {
+            'stylist_stats': stylist_analysis_data.get('stylist_stats', []),
+            'min_customers_filter': stylist_analysis_data.get('min_customers_filter', min_stylist_customers_filter),
+            'top_stylist': stylist_analysis_data.get('top_stylist', {'name': 'N/A', 'rate': 0.0, 'total_customers': 0}),
+            'total_x_plus_repeaters': stylist_analysis_data.get('total_x_plus_repeaters', 0)
+        }
+
+        if not stylist_analysis_data or not summary_info['stylist_stats']:
+            logger.warning("_create_stylist_charts: stylist_analysisデータまたはstylist_statsが空です。チャートは生成されません。")
+            return {'rate_chart': None, 'summary': summary_info} # summary はデフォルト値を返す
         
-        if not stylist_data['stylist_stats']:
-            return {'rate_chart': None, 'summary': stylist_data}
+        stylist_stats_list = summary_info['stylist_stats'] # 安全に取得済み
+
+        stylists = [s.get('stylist_name', '不明') for s in stylist_stats_list]
+        rates = [s.get('x_plus_rate', 0.0) for s in stylist_stats_list]
         
-        # X回以上リピート率横棒グラフ
-        stylists = [s['stylist_name'] for s in stylist_data['stylist_stats']]
-        rates = [s['x_plus_rate'] for s in stylist_data['stylist_stats']]
-        
+        if not stylists: # 念のため、リストが空の場合も考慮
+            logger.warning("_create_stylist_charts: stylist_statsから有効なスタイリスト名が抽出できませんでした。")
+            return {'rate_chart': None, 'summary': summary_info}
+
         rate_chart = {
             'type': 'bar',
             'data': {
                 'labels': stylists,
                 'datasets': [{
-                    'label': f"{results['basic_stats']['min_repeat_count']}回以上リピート率 (%)",
+                    'label': f"{min_repeat_count}回以上リピート率 (%)",
                     'data': rates,
-                    'backgroundColor': self.chart_colors['success'],
-                    'borderColor': self.chart_colors['success'],
+                    'backgroundColor': self.chart_colors.get('success', '#10b981'),
+                    'borderColor': self.chart_colors.get('success', '#10b981'),
                     'borderWidth': 1
                 }]
             },
@@ -249,7 +301,7 @@ class DashboardVisualizer:
                 'plugins': {
                     'title': {
                         'display': True,
-                        'text': f"スタイリスト別{results['basic_stats']['min_repeat_count']}回以上リピート率"
+                        'text': f"スタイリスト別{min_repeat_count}回以上リピート率"
                     }
                 },
                 'scales': {
@@ -263,29 +315,45 @@ class DashboardVisualizer:
         
         return {
             'rate_chart': rate_chart,
-            'summary': stylist_data
+            'summary': summary_info
         }
     
     def _create_coupon_charts(self, results: Dict) -> Dict:
         """クーポン分析チャート用データ作成"""
-        coupon_data = results['coupon_analysis']
+        coupon_analysis_data = results.get('coupon_analysis', {})
+        basic_stats = results.get('basic_stats', {})
+        min_repeat_count = basic_stats.get('min_repeat_count', 'X')
+        min_coupon_customers_filter = basic_stats.get('min_coupon_customers', 0) # from analysis params
+
+        summary_info = {
+            'coupon_stats': coupon_analysis_data.get('coupon_stats', []),
+            'min_customers_filter': coupon_analysis_data.get('min_customers_filter', min_coupon_customers_filter),
+            'best_coupon': coupon_analysis_data.get('best_coupon', {'name': 'N/A', 'rate': 0.0, 'avg_repeat': 0.0, 'total_customers': 0})
+        }
+
+        if not coupon_analysis_data or not summary_info['coupon_stats']:
+            logger.warning("_create_coupon_charts: coupon_analysisデータまたはcoupon_statsが空です。チャートは生成されません。")
+            return {'rate_chart': None, 'repeat_chart': None, 'summary': summary_info}
         
-        if not coupon_data['coupon_stats']:
-            return {'rate_chart': None, 'repeat_chart': None, 'summary': coupon_data}
-        
-        # X回以上リピート率横棒グラフ
-        coupons = [c['coupon_name'] for c in coupon_data['coupon_stats']]
-        rates = [c['x_plus_rate'] for c in coupon_data['coupon_stats']]
-        
+        coupon_stats_list = summary_info['coupon_stats']
+
+        coupons = [c.get('coupon_name', '不明') for c in coupon_stats_list]
+        rates = [c.get('x_plus_rate', 0.0) for c in coupon_stats_list]
+        avg_repeats = [c.get('avg_repeat_repeaters', 0.0) for c in coupon_stats_list]
+
+        if not coupons: # リストが空の場合
+            logger.warning("_create_coupon_charts: coupon_statsから有効なクーポン名が抽出できませんでした。")
+            return {'rate_chart': None, 'repeat_chart': None, 'summary': summary_info}
+
         rate_chart = {
             'type': 'bar',
             'data': {
                 'labels': coupons,
                 'datasets': [{
-                    'label': f"{results['basic_stats']['min_repeat_count']}回以上リピート率 (%)",
+                    'label': f"{min_repeat_count}回以上リピート率 (%)",
                     'data': rates,
-                    'backgroundColor': self.chart_colors['warning'],
-                    'borderColor': self.chart_colors['warning'],
+                    'backgroundColor': self.chart_colors.get('warning', '#f59e0b'),
+                    'borderColor': self.chart_colors.get('warning', '#f59e0b'),
                     'borderWidth': 1
                 }]
             },
@@ -296,7 +364,7 @@ class DashboardVisualizer:
                 'plugins': {
                     'title': {
                         'display': True,
-                        'text': f"クーポン別{results['basic_stats']['min_repeat_count']}回以上リピート率"
+                        'text': f"クーポン別{min_repeat_count}回以上リピート率"
                     }
                 },
                 'scales': {
@@ -308,9 +376,6 @@ class DashboardVisualizer:
             }
         }
         
-        # 平均リピート回数横棒グラフ
-        avg_repeats = [c['avg_repeat_repeaters'] for c in coupon_data['coupon_stats']]
-        
         repeat_chart = {
             'type': 'bar',
             'data': {
@@ -318,8 +383,8 @@ class DashboardVisualizer:
                 'datasets': [{
                     'label': '平均リピート回数',
                     'data': avg_repeats,
-                    'backgroundColor': self.chart_colors['info'],
-                    'borderColor': self.chart_colors['info'],
+                    'backgroundColor': self.chart_colors.get('info', '#06b6d4'),
+                    'borderColor': self.chart_colors.get('info', '#06b6d4'),
                     'borderWidth': 1
                 }]
             },
@@ -344,26 +409,35 @@ class DashboardVisualizer:
         return {
             'rate_chart': rate_chart,
             'repeat_chart': repeat_chart,
-            'summary': coupon_data
+            'summary': summary_info
         }
     
     def _create_target_charts(self, results: Dict) -> Dict:
         """目標値比較チャート用データ作成"""
-        target_data = results['target_comparison']
+        target_comparison_data = results.get('target_comparison', {})
+        basic_stats = results.get('basic_stats', {})
+
+        if not target_comparison_data:
+            logger.warning("_create_target_charts: target_comparisonデータがありません。")
+            return {'comparison_chart': None, 'summary': {}}
+
+        target_rates = target_comparison_data.get('target_rates', {})
+        actual_rates = target_comparison_data.get('actual_rates', {})
         
-        # 目標と実績比較棒グラフ
+        # summary は target_comparison_data 全体を渡すことが多いので、そのまま利用しつつ、
+        # チャート生成に必要な主要なデータが欠けている場合はチャートを None にする
+        summary_info = target_comparison_data # もし個別のデフォルト値が必要なら別途構築
+
         stages = ['初回リピート', '2回目リピート', '3回目リピート']
-        target_values = [
-            target_data['target_rates']['first_repeat'],
-            target_data['target_rates']['second_repeat'],
-            target_data['target_rates']['third_repeat']
-        ]
-        actual_values = [
-            target_data['actual_rates']['first_repeat'],
-            target_data['actual_rates']['second_repeat'],
-            target_data['actual_rates']['third_repeat']
-        ]
+        stage_keys = ['first_repeat', 'second_repeat', 'third_repeat']
         
+        target_values = [target_rates.get(key, 0.0) for key in stage_keys]
+        actual_values = [actual_rates.get(key, 0.0) for key in stage_keys]
+
+        if not target_rates or not actual_rates:
+            logger.warning("_create_target_charts: target_ratesまたはactual_ratesが不足しています。チャートは生成されません。")
+            return {'comparison_chart': None, 'summary': summary_info}
+
         comparison_chart = {
             'type': 'bar',
             'data': {
@@ -372,15 +446,15 @@ class DashboardVisualizer:
                     {
                         'label': '実績値 (%)',
                         'data': actual_values,
-                        'backgroundColor': self.chart_colors['primary'],
-                        'borderColor': self.chart_colors['primary'],
+                        'backgroundColor': self.chart_colors.get('primary', '#3b82f6'),
+                        'borderColor': self.chart_colors.get('primary', '#3b82f6'),
                         'borderWidth': 1
                     },
                     {
                         'label': '目標値 (%)',
                         'data': target_values,
-                        'backgroundColor': self.chart_colors['secondary'],
-                        'borderColor': self.chart_colors['secondary'],
+                        'backgroundColor': self.chart_colors.get('secondary', '#ef4444'),
+                        'borderColor': self.chart_colors.get('secondary', '#ef4444'),
                         'borderWidth': 1
                     }
                 ]
@@ -405,19 +479,31 @@ class DashboardVisualizer:
         
         return {
             'comparison_chart': comparison_chart,
-            'summary': target_data
+            'summary': summary_info
         }
     
     def _create_period_charts(self, results: Dict) -> Dict:
         """期間分析チャート用データ作成"""
-        period_data = results['period_analysis']
+        period_analysis_data = results.get('period_analysis', {})
+
+        if not period_analysis_data:
+            logger.warning("_create_period_charts: period_analysisデータがありません。")
+            return {'period_chart': None, 'summary': {}}
+
+        period_distribution = period_analysis_data.get('period_distribution', {})
+        summary_info = period_analysis_data # 必要に応じて個別にデフォルト値設定
+
+        if not period_distribution:
+            logger.warning("_create_period_charts: period_distributionが空です。チャートは生成されません。")
+            return {'period_chart': None, 'summary': summary_info}
         
-        if not period_data['period_distribution']:
-            return {'period_chart': None, 'summary': period_data}
-        
-        # 期間分布円グラフ
-        periods = list(period_data['period_distribution'].keys())
-        counts = [period_data['period_distribution'][p]['count'] for p in periods]
+        periods = list(period_distribution.keys())
+        # period_distribution の値は {'count': X, 'percentage': Y} のような辞書を想定
+        counts = [period_distribution.get(p, {}).get('count', 0) for p in periods]
+
+        if not periods or not any(c > 0 for c in counts): # 期間がないか、全カウントが0ならチャート不要
+            logger.warning("_create_period_charts: 有効な期間データがありません。チャートは生成されません。")
+            return {'period_chart': None, 'summary': summary_info}
         
         period_chart = {
             'type': 'pie',
@@ -426,12 +512,12 @@ class DashboardVisualizer:
                 'datasets': [{
                     'data': counts,
                     'backgroundColor': [
-                        self.chart_colors['primary'],
-                        self.chart_colors['success'],
-                        self.chart_colors['warning'],
-                        self.chart_colors['info'],
-                        self.chart_colors['secondary'],
-                        self.chart_colors['dark']
+                        self.chart_colors.get('primary', '#3b82f6'),
+                        self.chart_colors.get('success', '#10b981'),
+                        self.chart_colors.get('warning', '#f59e0b'),
+                        self.chart_colors.get('info', '#06b6d4'),
+                        self.chart_colors.get('secondary', '#ef4444'),
+                        self.chart_colors.get('dark', '#374151')
                     ]
                 }]
             },
@@ -452,148 +538,157 @@ class DashboardVisualizer:
         
         return {
             'period_chart': period_chart,
-            'summary': period_data
+            'summary': summary_info
         }
     
     def _create_monthly_charts(self, results: Dict) -> Dict:
         """月別分析チャート用データ作成"""
-        monthly_data = results['monthly_analysis']
-        
-        # 月別新規顧客数
-        months = list(monthly_data['monthly_new_customers'].keys())
-        new_counts = list(monthly_data['monthly_new_customers'].values())
-        
-        new_customers_chart = {
-            'type': 'line',
-            'data': {
-                'labels': months,
-                'datasets': [{
-                    'label': '新規顧客数',
-                    'data': new_counts,
-                    'borderColor': self.chart_colors['primary'],
-                    'backgroundColor': 'transparent',
-                    'borderWidth': 2,
-                    'fill': False
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'title': {
-                        'display': True,
-                        'text': '月別新規顧客数推移'
-                    }
+        monthly_analysis_data = results.get('monthly_analysis', {})
+
+        if not monthly_analysis_data:
+            logger.warning("_create_monthly_charts: monthly_analysisデータがありません。")
+            return {'new_customers_chart': None, 'repeat_rate_chart': None, 'summary': {}}
+
+        monthly_new_customers = monthly_analysis_data.get('monthly_new_customers', {})
+        monthly_repeat_rates_data = monthly_analysis_data.get('monthly_repeat_rates', {})
+        summary_info = monthly_analysis_data # 必要に応じて個別にデフォルト値設定
+
+        if not monthly_new_customers:
+            logger.warning("_create_monthly_charts: monthly_new_customersが空です。新規顧客数チャートは生成されません。")
+            new_customers_chart = None
+        else:
+            months_new = list(monthly_new_customers.keys())
+            new_counts = list(monthly_new_customers.values())
+            new_customers_chart = {
+                'type': 'line',
+                'data': {
+                    'labels': months_new,
+                    'datasets': [{
+                        'label': '新規顧客数',
+                        'data': new_counts,
+                        'borderColor': self.chart_colors.get('primary', '#3b82f6'),
+                        'backgroundColor': 'transparent',
+                        'borderWidth': 2,
+                        'fill': False
+                    }]
                 },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True
+                'options': {
+                    'responsive': True,
+                    'maintainAspectRatio': False,
+                    'plugins': {
+                        'title': {
+                            'display': True,
+                            'text': '月別新規顧客数推移'
+                        }
+                    },
+                    'scales': {
+                        'y': {
+                            'beginAtZero': True
+                        }
                     }
                 }
             }
-        }
         
-        # 月別初回リピート率
-        repeat_rates = [monthly_data['monthly_repeat_rates'][m]['repeat_rate'] for m in months if m in monthly_data['monthly_repeat_rates']]
-        
-        repeat_rate_chart = {
-            'type': 'line',
-            'data': {
-                'labels': months,
-                'datasets': [{
-                    'label': '初回リピート率 (%)',
-                    'data': repeat_rates,
-                    'borderColor': self.chart_colors['success'],
-                    'backgroundColor': 'transparent',
-                    'borderWidth': 2,
-                    'fill': False
-                }]
-            },
-            'options': {
-                'responsive': True,
-                'maintainAspectRatio': False,
-                'plugins': {
-                    'title': {
-                        'display': True,
-                        'text': '月別初回リピート率推移'
-                    }
-                },
-                'scales': {
-                    'y': {
-                        'beginAtZero': True,
-                        'max': 100
+        if not monthly_repeat_rates_data:
+            logger.warning("_create_monthly_charts: monthly_repeat_ratesが空です。リピート率チャートは生成されません。")
+            repeat_rate_chart = None
+        else:
+            # monthly_repeat_rates_data は {月: {'repeat_rate': X, 'new_customers': Y, 'repeaters': Z}} のような構造を想定
+            # new_customers_chart と同じ月ラベルを共有するのが一般的
+            months_for_rates = list(monthly_new_customers.keys()) if monthly_new_customers else list(monthly_repeat_rates_data.keys())
+            months_for_rates.sort() # 月の順序を保証
+            
+            repeat_rates_values = [monthly_repeat_rates_data.get(m, {}).get('repeat_rate', 0.0) for m in months_for_rates]
+
+            if not any(r > 0 for r in repeat_rates_values) and not new_customers_chart: # 両方データ無ければチャートなし
+                 logger.warning("_create_monthly_charts: 有効な月次リピート率データがありません。")
+                 repeat_rate_chart = None
+            else:
+                repeat_rate_chart = {
+                    'type': 'line',
+                    'data': {
+                        'labels': months_for_rates, # 新規顧客数チャートのX軸と合わせる
+                        'datasets': [{
+                            'label': '初回リピート率 (%)',
+                            'data': repeat_rates_values,
+                            'borderColor': self.chart_colors.get('success', '#10b981'),
+                            'backgroundColor': 'transparent',
+                            'borderWidth': 2,
+                            'fill': False
+                        }]
+                    },
+                    'options': {
+                        'responsive': True,
+                        'maintainAspectRatio': False,
+                        'plugins': {
+                            'title': {
+                                'display': True,
+                                'text': '月別初回リピート率推移'
+                            }
+                        },
+                        'scales': {
+                            'y': {
+                                'beginAtZero': True,
+                                'max': 100
+                            }
+                        }
                     }
                 }
-            }
-        }
         
         return {
             'new_customers_chart': new_customers_chart,
             'repeat_rate_chart': repeat_rate_chart,
-            'summary': monthly_data
+            'summary': summary_info
         }
     
     def _create_summary_tables(self, results: Dict) -> Dict:
-        """サマリーテーブル用データ作成"""
+        """サマリーテーブル用データ作成 (例: スタイリストランキングなど)"""
+        stylist_analysis = results.get('stylist_analysis', {})
+        coupon_analysis = results.get('coupon_analysis', {})
+        basic_stats = results.get('basic_stats', {})
+        min_repeat_count_for_header = basic_stats.get('min_repeat_count', 'X')
+
+        stylist_stats = stylist_analysis.get('stylist_stats', [])
+        coupon_stats = coupon_analysis.get('coupon_stats', [])
+
+        stylist_table_headers = ['スタイリスト名', '担当新規顧客数', '初回リピート率(%)', f"{min_repeat_count_for_header}回以上リピート率(%)"]
+        stylist_table_rows = []
+        if stylist_stats:
+            for stat in stylist_stats:
+                stylist_table_rows.append([
+                    stat.get('stylist_name', '不明'),
+                    stat.get('total_customers', 0),
+                    round(stat.get('first_repeat_rate', 0.0), 1),
+                    round(stat.get('x_plus_rate', 0.0), 1)
+                ])
+        else:
+            logger.warning("_create_summary_tables: stylist_statsが空のため、スタイリストランキングテーブルは空になります。")
         
-        # 目標値比較テーブル
-        target_data = results['target_comparison']
-        target_table = []
-        
-        stages = {
-            'first_repeat': '初回リピート',
-            'second_repeat': '2回目リピート', 
-            'third_repeat': '3回目リピート'
+        stylist_table = {
+            'headers': stylist_table_headers,
+            'rows': stylist_table_rows
         }
         
-        for stage_key, stage_name in stages.items():
-            target_table.append({
-                'stage': stage_name,
-                'target_rate': f"{target_data['target_rates'][stage_key]}%",
-                'actual_rate': f"{target_data['actual_rates'][stage_key]}%",
-                'achievement_rate': f"{target_data['achievement_rates'][stage_key]}%"
-            })
-        
-        # 追加必要顧客数テーブル
-        additional_table = []
-        for stage_key, stage_name in stages.items():
-            additional_data = target_data['required_additional'][stage_key]
-            additional_table.append({
-                'stage': stage_name,
-                'target_count': additional_data['target_count'],
-                'current_count': additional_data['current_count'],
-                'additional_needed': additional_data['additional_needed']
-            })
-        
+        coupon_table_headers = ['クーポン名', '利用顧客数', '初回リピート率(%)', f"{min_repeat_count_for_header}回以上リピート率(%)", '平均リピート回数']
+        coupon_table_rows = []
+        if coupon_stats:
+            for stat in coupon_stats:
+                coupon_table_rows.append([
+                    stat.get('coupon_name', '不明'),
+                    stat.get('total_customers', 0),
+                    round(stat.get('first_repeat_rate', 0.0), 1),
+                    round(stat.get('x_plus_rate', 0.0), 1),
+                    round(stat.get('avg_repeat_repeaters', 0.0), 1)
+                ])
+        else:
+            logger.warning("_create_summary_tables: coupon_statsが空のため、クーポンサマリーテーブルは空になります。")
+
+        coupon_table = {
+            'headers': coupon_table_headers,
+            'rows': coupon_table_rows
+        }
+
         return {
-            'target_comparison_table': target_table,
-            'additional_customers_table': additional_table
-        }
-    
-    def get_chart_data(self, chart_type: str, analysis_results: Dict) -> Dict:
-        """
-        特定のチャートデータを取得
-        
-        Args:
-            chart_type: チャート種別
-            analysis_results: 分析結果
-            
-        Returns:
-            チャートデータ
-        """
-        dashboard_data = self.generate_dashboard_data(analysis_results)
-        
-        chart_map = {
-            'funnel_stages': dashboard_data['funnel_charts']['stage_chart'],
-            'funnel_continuation': dashboard_data['funnel_charts']['continuation_chart'],
-            'funnel_distribution': dashboard_data['funnel_charts']['distribution_chart'],
-            'stylist_rates': dashboard_data['stylist_charts']['rate_chart'],
-            'coupon_rates': dashboard_data['coupon_charts']['rate_chart'],
-            'coupon_repeats': dashboard_data['coupon_charts']['repeat_chart'],
-            'target_comparison': dashboard_data['target_charts']['comparison_chart'],
-            'period_distribution': dashboard_data['period_charts']['period_chart'],
-            'monthly_new': dashboard_data['monthly_charts']['new_customers_chart'],
-            'monthly_repeat': dashboard_data['monthly_charts']['repeat_rate_chart']
-        }
-        
-        return chart_map.get(chart_type, {'error': 'Chart type not found'}) 
+            'stylist_ranking_table': stylist_table,
+            'coupon_summary_table': coupon_table
+        } 

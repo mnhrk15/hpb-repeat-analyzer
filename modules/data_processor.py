@@ -60,6 +60,19 @@ class DataProcessor:
         # 顧客同定・統合
         final_df = self._identify_customers(cleaned_df)
         logger.info(f"顧客同定完了: {len(final_df)}件")
+
+        # RepeatAnalyzerが必要とする可能性のある主要カラムの存在確認ログ
+        expected_columns_for_analysis = [
+            '来店日', '顧客ID', 'スタイリスト名', 
+            '予約時HotPepperBeautyクーポン', '予約時合計金額', '性別', '予約時メニュー',
+            'このサロンに行くのは初めてですか？' # RepeatAnalyzerでも参照
+        ]
+        logger.info("最終DataFrameのカラム構成チェック:")
+        for col in expected_columns_for_analysis:
+            if col in final_df.columns:
+                logger.info(f"  ✅ カラム '{col}' は存在します。型: {final_df[col].dtype}")
+            else:
+                logger.warning(f"  ⚠️ カラム '{col}' は存在しません。")
         
         return final_df
     
@@ -128,15 +141,22 @@ class DataProcessor:
         # 必須カラムの存在確認
         missing_columns = [col for col in self.required_columns if col not in df.columns]
         if missing_columns:
+            # 必須カラムがない場合は警告を出し、処理を継続するが、カラムがないことによるエラーは下流で発生する可能性あり
             logger.warning(f"必須カラムが不足: {missing_columns}")
         
-        # 来店日の処理
-        df = self._clean_visit_date(df)
+        # 来店日の処理 (エラーの場合、該当行がフィルタされる可能性)
+        df = self._clean_visit_date(df) # '来店日' カラムがdatetime型になる
         
-        # ステータスフィルタ
-        df = df[df['ステータス'] == '済み'].copy()
-        logger.info(f"ステータス='済み'でフィルタ: {len(df)}/{original_count}件")
-        
+        # ステータスフィルタ (ステータスカラムが存在する場合のみ)
+        if 'ステータス' in df.columns:
+            df = df[df['ステータス'] == '済み'].copy()
+            logger.info(f"ステータス='済み'でフィルタ: {len(df)}/{original_count}件 (フィルタ前件数は来店日処理後)")
+        else:
+            logger.warning("'ステータス' カラムが存在しないため、フィルタリングをスキップします。")
+
+        # 真偽値フラグのクリーニング (「このサロンに行くのは初めてですか？」など)
+        df = self._clean_boolean_flags(df)
+
         # 顧客情報のクレンジング
         df = self._clean_customer_info(df)
         
@@ -178,6 +198,12 @@ class DataProcessor:
         df = df[valid_dates].copy()
         logger.info(f"有効な来店日でフィルタ: {len(df)}件")
         
+        # '来店日_parsed' カラムが存在する場合、元の '来店日' カラムを削除し、'来店日_parsed' を '来店日' にリネーム
+        if '来店日_parsed' in df.columns:
+            if '来店日' in df.columns:
+                df.drop(columns=['来店日'], inplace=True)
+            df.rename(columns={'来店日_parsed': '来店日'}, inplace=True)
+            
         return df
     
     def _clean_customer_info(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -253,20 +279,62 @@ class DataProcessor:
         # 統一氏名キーの生成
         def create_name_key(row):
             # 氏名情報を優先順位で結合
-            kana = row.get('フリガナ_normalized') or row.get('氏名(カナ)_normalized')
-            kanji = row.get('お名前_normalized') or row.get('氏名(漢字)_normalized')
+            # *_normalized カラムが存在すればそれを使用し、なければ元のカラムを試す
+            kana_col_candidates = ['フリガナ_normalized', '氏名(カナ)_normalized', 'フリガナ', '氏名(カナ)']
+            kanji_col_candidates = ['お名前_normalized', '氏名(漢字)_normalized', 'お名前', '氏名(漢字)']
+            
+            kana = next((row.get(col) for col in kana_col_candidates if row.get(col) and pd.notna(row.get(col))), None)
+            kanji = next((row.get(col) for col in kanji_col_candidates if row.get(col) and pd.notna(row.get(col))), None)
             
             if kana and kanji:
-                return f"{kana}#{kanji}"
+                return f"{str(kana).strip()}#{str(kanji).strip()}" # strip() を追加して前後の空白を除去
             elif kana:
-                return kana
+                return str(kana).strip()
             elif kanji:
-                return kanji
+                return str(kanji).strip()
             else:
-                return None
-        
+                return None 
+
         df['統一氏名キー'] = df.apply(create_name_key, axis=1)
         
+        # ここでは正規化とキー生成のみ。顧客同定は _identify_customers で行う。
+        return df
+    
+    def _clean_boolean_flags(self, df: pd.DataFrame) -> pd.DataFrame:
+        """特定のフラグ列をブール型に変換する"""
+        df = df.copy()
+        column_name = 'このサロンに行くのは初めてですか？'
+        if column_name not in df.columns:
+            logger.warning(f"カラム '{column_name}' が存在しないため、ブール変換をスキップします。")
+            return df
+
+        # マッピング辞書: 文字列 -> ブール値
+        # 小文字に変換して比較することで、大文字・小文字の揺れに対応
+        true_values = ['true', 'yes', 'はい', 'はい、初めてです', '1']
+        false_values = ['false', 'no', 'いいえ', '0']
+
+        def map_to_bool(value):
+            if pd.isna(value):
+                return None # または False をデフォルトにするか検討
+            str_value = str(value).lower().strip()
+            if str_value in true_values:
+                return True
+            if str_value in false_values:
+                return False
+            # どちらにも該当しない場合は None (不明) または False とする
+            # RepeatAnalyzerのロジックでは True 以外はリピーターとして扱われるため、NoneでもFalseでも同様の挙動になることが多い
+            # ここでは None として、欠損として扱う
+            logger.debug(f"カラム '{column_name}' の値 '{value}' はTrue/Falseに変換できませんでした。Noneとして扱います。")
+            return None 
+
+        df[column_name] = df[column_name].apply(map_to_bool)
+        # dtypeを明示的にboolにしたいが、Noneが含まれるとobjectになるため、ここでは変換しない。
+        # Pandas >= 1.0 であれば df[column_name] = df[column_name].astype("boolean") でNullable Booleanが使える。
+        # 現在のPandasのバージョンと挙動に依存する。Noneを許容するならobjectのままで良い。
+        # RepeatAnalyzer側では if new_customers['このサロンに行くのは初めてですか？'] == True: と比較しているので、
+        # None や False は条件に合致しないため、実質的に False と同様に扱われる。
+
+        logger.info(f"カラム '{column_name}' のブール変換処理完了。")
         return df
     
     def _identify_customers(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -312,64 +380,90 @@ class DataProcessor:
     
     def get_new_customers(self, df: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
         """
-        指定期間の新規顧客を抽出
-        
-        Args:
-            df: 全データフレーム
-            start_date: 開始日 (YYYY-MM-DD)
-            end_date: 終了日 (YYYY-MM-DD)
-            
-        Returns:
-            新規顧客データフレーム
-        """
-        # 期間フィルタ
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-        
-        period_filter = (df['来店日_parsed'] >= start_dt) & (df['来店日_parsed'] <= end_dt)
-        period_data = df[period_filter].copy()
-        
-        # 新規顧客フィルタ
-        if 'このサロンに行くのは初めてですか？' in df.columns:
-            new_customer_filter = period_data['このサロンに行くのは初めてですか？'] == 'はい、初めてです'
-            new_customers = period_data[new_customer_filter].copy()
-        else:
-            logger.warning("新規顧客判定カラムが存在しません")
-            new_customers = period_data.copy()
-        
-        # 顧客ごとに最初の来店日を特定
-        new_customers_first_visit = new_customers.groupby('顧客ID')['来店日_parsed'].min().reset_index()
-        new_customers_first_visit.columns = ['顧客ID', '初回来店日']
-        
-        # 詳細情報をマージ
-        new_customers_detailed = new_customers.merge(new_customers_first_visit, on='顧客ID')
-        
-        # 初回来店のレコードのみ抽出
-        new_customers_detailed = new_customers_detailed[
-            new_customers_detailed['来店日_parsed'] == new_customers_detailed['初回来店日']
-        ].copy()
-        
-        logger.info(f"新規顧客抽出完了: {len(new_customers_detailed)}人")
-        
-        return new_customers_detailed
-    
-    def get_date_range(self, df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
-        """
-        データフレーム内の '来店日_parsed' カラムから最初と最後の日付を取得する
+        指定期間内の新規顧客を抽出する。
+        新規顧客の定義: 「このサロンに行くのは初めてですか？」が True、または
+                      指定期間内の来店がその顧客の最初の来店である。
 
         Args:
-            df: 処理済みのデータフレーム
+            df: 顧客データフレーム (来店日カラムはdatetime型であること)
+            start_date: 新規顧客抽出期間の開始日 (YYYY-MM-DD)
+            end_date: 新規顧客抽出期間の終了日 (YYYY-MM-DD)
+
+        Returns:
+            新規顧客のデータフレーム
+        """
+        if '来店日' not in df.columns or not pd.api.types.is_datetime64_any_dtype(df['来店日']):
+            logger.error("get_new_customers: '来店日' カラムが存在しないか、datetime型ではありません。")
+            # 元のDataFrameの構造を維持しつつ空のDataFrameを返す
+            return pd.DataFrame(columns=df.columns)
+        
+        if '顧客ID' not in df.columns:
+            logger.error("get_new_customers: '顧客ID' カラムが存在しません。")
+            return pd.DataFrame(columns=df.columns)
+
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError as e:
+            logger.error(f"日付フォーマットエラー: {e}")
+            return pd.DataFrame(columns=df.columns)
+        
+        # 期間内データ抽出
+        period_filter = (df['来店日'] >= start_dt) & (df['来店日'] <= end_dt)
+        period_data = df[period_filter].copy()
+
+        if period_data.empty:
+            logger.info("指定期間内に来店記録がありません。")
+            return pd.DataFrame(columns=df.columns)
+
+        # 「初めて」フラグがTrueの顧客
+        explicit_new_customers = period_data[period_data['このサロンに行くのは初めてですか？'] == True].copy()
+
+        # 全データから顧客ごとの初回来店日を計算
+        # 注意: dfは全期間のデータ、period_dataは指定期間内のデータ
+        # ここではdf全体を使って、その顧客の「真の」初回来店日を特定する
+        all_first_visits = df.loc[df['来店日'].notna()].groupby('顧客ID')['来店日'].min().reset_index()
+        all_first_visits.rename(columns={'来店日': '真の初回来店日'}, inplace=True)
+        
+        # 期間内データに「真の初回来店日」をマージ
+        period_data_with_true_first_visit = pd.merge(period_data, all_first_visits, on='顧客ID', how='left')
+
+        # 指定期間内の来店が「真の初回来店日」と一致する顧客
+        # (「初めて」フラグがFalse/欠損でも、この条件で新規とみなせる)
+        implicit_new_customers = period_data_with_true_first_visit[
+            period_data_with_true_first_visit['来店日'] == period_data_with_true_first_visit['真の初回来店日']
+        ].copy()
+        
+        # 両者を結合し、重複を除去
+        new_customers_df = pd.concat([explicit_new_customers, implicit_new_customers]).drop_duplicates(subset=['顧客ID', '来店日']).sort_values(by=['顧客ID', '来店日'])
+
+        # 新規顧客の「初回来店日」カラムを明確にする (この文脈では期間内の来店日)
+        # ただし、RepeatAnalyzerは '初回来店日' というカラム名で、新規顧客期間内の最初の来店日を期待するため、
+        # ここでは new_customers_df の '来店日' を '初回来店日' として扱うか、
+        # RepeatAnalyzer側で解釈できるように、このメソッドの責務としては「新規顧客リスト」を返すに留める。
+        # 現状、RepeatAnalyzerは渡された新規顧客リストの '来店日' を見ているはずなので、カラム名は '来店日' のままで良い。
+
+        logger.info(f"抽出された新規顧客数: {len(new_customers_df)}件 (期間: {start_date}～{end_date})")
+        return new_customers_df
+
+    def get_date_range(self, df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
+        """
+        データフレーム内の '来店日' カラムから最初と最後の日付を取得する
+
+        Args:
+            df: データフレーム (来店日カラムはdatetime型であること)
 
         Returns:
             (最初の日付文字列, 最後の日付文字列) or (None, None)
         """
-        if '来店日_parsed' not in df.columns or df['来店日_parsed'].isnull().all():
+        if '来店日' not in df.columns or df['来店日'].isnull().all() or not pd.api.types.is_datetime64_any_dtype(df['来店日']):
+            logger.warning("get_date_range: '来店日' カラムが存在しない、すべて欠損している、またはdatetime型ではありません。")
             return None, None
         
         try:
-            min_date = df['来店日_parsed'].min().strftime('%Y-%m-%d')
-            max_date = df['来店日_parsed'].max().strftime('%Y-%m-%d')
+            min_date = df['来店日'].min().strftime('%Y-%m-%d')
+            max_date = df['来店日'].max().strftime('%Y-%m-%d')
             return min_date, max_date
         except Exception as e:
-            logger.error(f"日付範囲の取得エラー: {str(e)}")
+            logger.error(f"日付範囲取得エラー: {e}")
             return None, None 

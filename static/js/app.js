@@ -172,24 +172,6 @@ const Dashboard = {
     },
     
     /**
-     * チャートデータを取得してレンダリング
-     */
-    loadChart: function(chartType, canvasId) {
-        fetch(`/api/chart/${chartType}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    console.error('Chart data error:', data.error);
-                    return;
-                }
-                createChart(canvasId, data);
-            })
-            .catch(error => {
-                console.error('Failed to load chart:', error);
-            });
-    },
-    
-    /**
      * すべてのチャートを再読み込み
      */
     refreshAllCharts: function() {
