@@ -17,5 +17,8 @@ python-dateutil==2.8.2
 # File Handling
 chardet==5.2.0
 
+# WSGI Server for Production
+gunicorn>=20.0.0
+
 # Development Tools
 python-dotenv==1.0.0
