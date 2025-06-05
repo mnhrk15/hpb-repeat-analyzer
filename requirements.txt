@@ -1,0 +1,21 @@
+# Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Data Visualization
+plotly==5.17.0
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Date/Time Handling
+python-dateutil==2.8.2
+
+# File Handling
+chardet==5.2.0
+
+# Development Tools
+python-dotenv==1.0.0

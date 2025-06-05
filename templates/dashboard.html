@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - 美容室顧客データリピート分析システム{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">リピート分析ダッシュボード</h1>
+                    <p class="text-muted mb-0">
+                        分析期間: {{ parameters.new_customer_start }} ～ {{ parameters.new_customer_end }}
+                        （リピート集計終了: {{ parameters.repeat_analysis_end }}）
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>印刷
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="Export.downloadReport()">
+                        <i class="fas fa-download me-1"></i>レポート出力
+                    </button>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>戻る
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        {% for card in data.summary_cards %}
+        <div class="col-md-3 col-sm-6">
+            <div class="card summary-card bg-{{ card.color }} border-0 position-relative">
+                <div class="card-body">
+                    <div class="card-title">{{ card.title }}</div>
+                    <div class="card-value">{{ card.value }}</div>
+                    <div class="card-unit">{{ card.unit }}</div>
+                    <i class="fas fa-{{ card.icon }} card-icon"></i>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Funnel Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-funnel-dollar me-2"></i>
+                        リピートファネル分析
+                    </h3>
+                    <p class="section-description">
+                        このセクションでは、顧客が各来店段階（新規来店、2回目来店、3回目来店など）でどのように推移していくかを分析しています。
+                        ステージ間の継続率: 前段階から次の段階へ進んだ顧客の割合です。この値が高いほど顧客維持が成功していることを示します。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Stage Chart -->
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">リピートステージ別顧客数</h5>
+                                <canvas id="stageChart" height="300"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Continuation Rate Chart -->
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">ステージ間継続率</h5>
+                                <canvas id="continuationChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Distribution Chart -->
+                        <div class="col-12">
+                            <div class="chart-container">
+                                <h5 class="chart-title">リピート回数分布と累積割合</h5>
+                                <canvas id="distributionChart" height="250"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stylist Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-user-friends me-2"></i>
+                        スタイリスト別リピート分析
+                    </h3>
+                    <p class="section-description">
+                        このセクションでは、各スタイリストの顧客維持能力を分析しています。
+                        {{ parameters.min_repeat_count }}回以上リピート率: 各スタイリストが初回担当した顧客のうち、{{ parameters.min_repeat_count }}回以上リピートした（合計{{ parameters.min_repeat_count + 1 }}回以上来店した）顧客の割合です。
+                        ※新規顧客数が少ないスタイリスト（{{ data.stylist_charts.summary.min_customers_filter }}人未満）は比較対象から除外しています。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Summary Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                <h6 class="mb-1">トップスタイリスト</h6>
+                                <strong>{{ data.stylist_charts.summary.top_stylist.name }}</strong><br>
+                                <small>{{ parameters.min_repeat_count }}回以上リピート率: {{ data.stylist_charts.summary.top_stylist.rate }}%</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-success">
+                                <h6 class="mb-1">{{ parameters.min_repeat_count }}回以上リピーター数（全体）</h6>
+                                <strong>{{ data.stylist_charts.summary.total_x_plus_repeaters }}人</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if data.stylist_charts.rate_chart %}
+                    <div class="chart-container">
+                        <h5 class="chart-title">スタイリスト別{{ parameters.min_repeat_count }}回以上リピート率</h5>
+                        <canvas id="stylistRateChart" height="400"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        条件を満たすスタイリストデータがありません（最低{{ data.stylist_charts.summary.min_customers_filter }}人の新規顧客が必要）
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coupon Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-ticket-alt me-2"></i>
+                        クーポン別リピート分析
+                    </h3>
+                    <p class="section-description">
+                        このセクションでは、初回来店時に使用されたクーポンと顧客リピート状況を分析しています。
+                        この分析により、どのクーポンで来店した顧客が最も継続して来店するかを判断でき、効果的なクーポン施策の立案に役立ちます。
+                        ※利用顧客数が少ないクーポン（{{ data.coupon_charts.summary.min_customers_filter }}人未満）は比較対象から除外しています。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Summary Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <h6 class="mb-1">最も効果的なクーポン</h6>
+                                <strong>{{ data.coupon_charts.summary.best_coupon.name }}</strong><br>
+                                <small>{{ parameters.min_repeat_count }}回以上リピート率: {{ data.coupon_charts.summary.best_coupon.rate }}%</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                <h6 class="mb-1">平均リピート回数</h6>
+                                <strong>{{ data.coupon_charts.summary.best_coupon.avg_repeat }}回</strong><br>
+                                <small>（上記クーポンのリピーターのみ）</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if data.coupon_charts.rate_chart %}
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">クーポン別{{ parameters.min_repeat_count }}回以上リピート率</h5>
+                                <canvas id="couponRateChart" height="300"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">クーポン別平均リピート回数</h5>
+                                <canvas id="couponRepeatChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        条件を満たすクーポンデータがありません（最低{{ data.coupon_charts.summary.min_customers_filter }}人の利用顧客が必要）
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Target Comparison Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-bullseye me-2"></i>
+                        目標値比較分析
+                    </h3>
+                    <p class="section-description">
+                        このセクションでは、店舗が設定したリピート率の目標値と実績を比較し、目標達成に必要な具体的な顧客数を分析しています。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Overall Achievement -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="alert alert-primary">
+                                <h6 class="mb-1">全体目標達成率</h6>
+                                <strong>{{ data.target_charts.summary.overall_achievement }}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comparison Chart -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="chart-container">
+                                <h5 class="chart-title">リピート段階別 目標と実績</h5>
+                                <canvas id="targetComparisonChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comparison Tables -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h6>実績と目標値の比較</h6>
+                            <div class="table-responsive">
+                                <table class="table table-custom">
+                                    <thead>
+                                        <tr>
+                                            <th>リピート段階</th>
+                                            <th>目標値</th>
+                                            <th>実績値</th>
+                                            <th>目標達成率</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in data.summary_tables.target_comparison_table %}
+                                        <tr>
+                                            <td>{{ row.stage }}</td>
+                                            <td>{{ row.target_rate }}</td>
+                                            <td>{{ row.actual_rate }}</td>
+                                            <td>{{ row.achievement_rate }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-6">
+                            <h6>目標達成に必要な追加顧客数</h6>
+                            <div class="table-responsive">
+                                <table class="table table-custom">
+                                    <thead>
+                                        <tr>
+                                            <th>リピート段階</th>
+                                            <th>目標顧客数</th>
+                                            <th>現在の顧客数</th>
+                                            <th>追加で必要な顧客数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in data.summary_tables.additional_customers_table %}
+                                        <tr>
+                                            <td>{{ row.stage }}</td>
+                                            <td>{{ row.target_count }}人</td>
+                                            <td>{{ row.current_count }}人</td>
+                                            <td>{{ row.additional_needed }}人</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Period Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-clock me-2"></i>
+                        リピートまでの期間分析
+                    </h3>
+                    <p class="section-description">
+                        初回来店から初回リピートまでの期間を分析し、顧客エンゲージメントのタイミングを把握します。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Summary Stats -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-primary">{{ data.period_charts.summary.avg_days }}日</h5>
+                                <small class="text-muted">平均初回リピート日数</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-success">{{ data.period_charts.summary.median_days }}日</h5>
+                                <small class="text-muted">中央値初回リピート日数</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-info">{{ data.period_charts.summary.min_days }}日</h5>
+                                <small class="text-muted">最短初回リピート日数</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h5 class="text-warning">{{ data.period_charts.summary.max_days }}日</h5>
+                                <small class="text-muted">最長初回リピート日数</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if data.period_charts.period_chart %}
+                    <div class="row">
+                        <div class="col-md-8 mx-auto">
+                            <div class="chart-container">
+                                <h5 class="chart-title">初回リピートまでの期間分布</h5>
+                                <canvas id="periodChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Trends Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-chart-line me-2"></i>
+                        月別トレンド分析
+                    </h3>
+                    <p class="section-description">
+                        新規顧客獲得とリピート率の月別推移を分析し、季節性やトレンドを把握します。
+                    </p>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">月別新規顧客数推移</h5>
+                                <canvas id="monthlyNewChart" height="300"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-6">
+                            <div class="chart-container">
+                                <h5 class="chart-title">月別初回リピート率推移</h5>
+                                <canvas id="monthlyRepeatChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // チャートデータを渡す
+    const chartData = JSON.parse('{{ data | tojson }}');
+    
+    // ファネル分析チャート
+    if (chartData.funnel_charts.stage_chart) {
+        createChart('stageChart', chartData.funnel_charts.stage_chart);
+    }
+    
+    if (chartData.funnel_charts.continuation_chart) {
+        createChart('continuationChart', chartData.funnel_charts.continuation_chart);
+    }
+    
+    if (chartData.funnel_charts.distribution_chart) {
+        createChart('distributionChart', chartData.funnel_charts.distribution_chart);
+    }
+    
+    // スタイリスト分析チャート
+    if (chartData.stylist_charts.rate_chart) {
+        createChart('stylistRateChart', chartData.stylist_charts.rate_chart);
+    }
+    
+    // クーポン分析チャート
+    if (chartData.coupon_charts.rate_chart) {
+        createChart('couponRateChart', chartData.coupon_charts.rate_chart);
+    }
+    
+    if (chartData.coupon_charts.repeat_chart) {
+        createChart('couponRepeatChart', chartData.coupon_charts.repeat_chart);
+    }
+    
+    // 目標値比較チャート
+    if (chartData.target_charts.comparison_chart) {
+        createChart('targetComparisonChart', chartData.target_charts.comparison_chart);
+    }
+    
+    // 期間分析チャート
+    if (chartData.period_charts.period_chart) {
+        createChart('periodChart', chartData.period_charts.period_chart);
+    }
+    
+    // 月別トレンドチャート
+    if (chartData.monthly_charts.new_customers_chart) {
+        createChart('monthlyNewChart', chartData.monthly_charts.new_customers_chart);
+    }
+    
+    if (chartData.monthly_charts.repeat_rate_chart) {
+        createChart('monthlyRepeatChart', chartData.monthly_charts.repeat_rate_chart);
+    }
+});
+</script>
+{% endblock %} 

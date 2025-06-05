@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}エラー - 美容室顧客データリピート分析システム{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center mt-5">
+                <div class="error-icon mb-4">
+                    <i class="fas fa-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
+                </div>
+                
+                <h1 class="h3 mb-3">エラーが発生しました</h1>
+                
+                <div class="alert alert-danger">
+                    <p class="mb-0">{{ message or 'システムエラーが発生しました。' }}</p>
+                </div>
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>
+                        ホームに戻る
+                    </a>
+                </div>
+                
+                <hr class="mt-5">
+                
+                <div class="text-muted">
+                    <h6>トラブルシューティング</h6>
+                    <ul class="list-unstyled">
+                        <li>• CSVファイルが正しい形式であることを確認してください</li>
+                        <li>• ファイルサイズが制限（100MB）を超えていないか確認してください</li>
+                        <li>• 設定した期間に有効なデータが存在するか確認してください</li>
+                        <li>• しばらく時間をおいてから再度お試しください</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
