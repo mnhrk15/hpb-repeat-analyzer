@@ -132,6 +132,15 @@ class DashboardVisualizer:
                     'title': {
                         'display': True,
                         'text': 'リピートステージ別顧客数'
+                    },
+                    'datalabels': {  
+                        'display': True,
+                        'align': 'end',
+                        'anchor': 'end',
+                        'color': '#444',
+                        'font': {
+                            'weight': 'bold'
+                        }
                     }
                 },
                 'scales': {
@@ -169,6 +178,15 @@ class DashboardVisualizer:
                     'title': {
                         'display': True,
                         'text': 'ステージ間継続率'
+                    },
+                    'datalabels': {  
+                        'display': True,
+                        'align': 'end',
+                        'anchor': 'end',
+                        'color': '#444',
+                        'font': {
+                            'weight': 'bold'
+                        }
                     }
                 },
                 'scales': {
@@ -206,7 +224,11 @@ class DashboardVisualizer:
                             'data': repeat_values,
                             'backgroundColor': self.chart_colors['info'],
                             'borderColor': self.chart_colors['info'],
-                            'yAxisID': 'y'
+                            'yAxisID': 'y',
+                            'datalabels': { 
+                                'align': 'end',
+                                'anchor': 'end'
+                            }
                         },
                         {
                             'type': 'line',
@@ -214,7 +236,14 @@ class DashboardVisualizer:
                             'data': cumulative_values,
                             'borderColor': self.chart_colors['secondary'],
                             'backgroundColor': 'transparent',
-                            'yAxisID': 'y1'
+                            'yAxisID': 'y1',
+                            'datalabels': { 
+                                'align': 'top',
+                                'anchor': 'end',
+                                'backgroundColor': 'rgba(255, 255, 255, 0.7)',
+                                'borderRadius': 4,
+                                'padding': 4
+                            }
                         }
                     ]
                 },
@@ -225,6 +254,13 @@ class DashboardVisualizer:
                         'title': {
                             'display': True,
                             'text': 'リピート回数分布と累積割合'
+                        },
+                        'datalabels': {
+                            'display': True,
+                            'color': '#333',
+                            'font': {
+                                'weight': 'bold'
+                            }
                         }
                     },
                     'scales': {
@@ -689,6 +725,6 @@ class DashboardVisualizer:
         }
 
         return {
-            'stylist_ranking_table': stylist_table,
-            'coupon_summary_table': coupon_table
+            'stylist_table': stylist_table,
+            'coupon_table': coupon_table
         } 

@@ -346,9 +346,9 @@
                     {% if data.period_charts.period_chart %}
                     <div class="row">
                         <div class="col-md-8 mx-auto">
-                            <div class="chart-container" id="periodChartContainer">
+                            <div class="chart-container" id="periodDistributionChartContainer">
                                 <h5 class="chart-title">初回リピートまでの期間分布</h5>
-                                <canvas id="periodChart"></canvas>
+                                <canvas id="periodDistributionChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -359,6 +359,7 @@
     </div>
 
     <!-- Monthly Trends Section -->
+    <!--
     <div class="row mb-5">
         <div class="col-12">
             <div class="card">
@@ -392,65 +393,482 @@
             </div>
         </div>
     </div>
+    -->
+
+    <!-- Monthly Trend Analysis Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-chart-line me-2"></i>
+                        月次トレンド分析
+                    </h3>
+                    <p class="section-description">
+                        新規顧客獲得月別のリピート状況の推移を分析します。
+                    </p>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <div class="chart-container" id="monthlyNewCustomersChartContainer">
+                                <h5 class="chart-title">月別新規顧客数とリピート顧客数</h5>
+                                <canvas id="monthlyNewCustomersChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="chart-container" id="monthlyRepeatRateChartContainer">
+                                <h5 class="chart-title">月別リピート率</h5>
+                                <canvas id="monthlyRepeatRateChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Tables Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-table me-2"></i>
+                        詳細データテーブル
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Nav tabs -->
+                    <ul class="nav nav-tabs" id="summaryTableTabs" role="tablist">
+                        {% if data.summary_tables.stylist_table %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="stylist-table-tab" data-bs-toggle="tab" data-bs-target="#stylistTableContent" type="button" role="tab">スタイリスト別詳細</button>
+                        </li>
+                        {% endif %}
+                        {% if data.summary_tables.coupon_table %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if not data.summary_tables.stylist_table %}active{% endif %}" id="coupon-table-tab" data-bs-toggle="tab" data-bs-target="#couponTableContent" type="button" role="tab">クーポン別詳細</button>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Tab panes -->
+                    <div class="tab-content mt-3">
+                        {% if data.summary_tables.stylist_table %}
+                        <div class="tab-pane fade show active" id="stylistTableContent" role="tabpanel">
+                            <h5>スタイリスト別リピート分析 詳細</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            {% for header in data.summary_tables.stylist_table.headers %}
+                                            <th>{{ header }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in data.summary_tables.stylist_table.rows %}
+                                        <tr>
+                                            {% for cell in row %}
+                                            <td>{{ cell }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% if data.summary_tables.coupon_table %}
+                        <div class="tab-pane fade {% if not data.summary_tables.stylist_table %}show active{% endif %}" id="couponTableContent" role="tabpanel">
+                            <h5>クーポン別リピート分析 詳細</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            {% for header in data.summary_tables.coupon_table.headers %}
+                                            <th>{{ header }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in data.summary_tables.coupon_table.rows %}
+                                        <tr>
+                                            {% for cell in row %}
+                                            <td>{{ cell }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // チャートデータを渡す
+    // chartjs-plugin-datalabels をグローバルに登録
+    if (typeof ChartDataLabels !== 'undefined') {
+        Chart.register(ChartDataLabels);
+    } else {
+        console.error("ChartDataLabels plugin is not loaded.");
+    }
+
     const chartData = {{ data | tojson }};
+    const parameters = {{ parameters | tojson }};
+
+    const getCtx = (id) => document.getElementById(id)?.getContext('2d');
+
+    function initializeChart(canvasId, chartConfig) {
+        const ctx = getCtx(canvasId);
+        const container = document.getElementById(canvasId + 'Container');
+
+        if (!ctx || !container) {
+            console.warn(`Chart canvas or container not found for: ${canvasId}`);
+            return;
+        }
+
+        if (chartConfig && chartConfig.data && chartConfig.data.datasets && chartConfig.data.datasets.some(ds => ds.data && ds.data.length > 0)) {
+            // console.log(`Initializing chart: ${canvasId} with config:`, JSON.parse(JSON.stringify(chartConfig))); // 循環参照を避けるために一度stringify/parse
+            try {
+                new Chart(ctx, {
+                    type: chartConfig.type,
+                    data: chartConfig.data,
+                    options: chartConfig.options
+                });
+            } catch (e) {
+                console.error(`Error initializing chart ${canvasId}:`, e, JSON.parse(JSON.stringify(chartConfig)));
+                container.innerHTML = `<div class="alert alert-danger text-center p-3"><i class="fas fa-exclamation-triangle me-1"></i>グラフの表示中にエラーが発生しました。(${canvasId})</div>`;
+            }
+        } else {
+            console.warn(`Chart not initialized (config, data, or datasets missing or empty): ${canvasId}`, JSON.parse(JSON.stringify(chartConfig || {})));
+            container.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>表示できるデータがありません。(${canvasId})</div>`;
+        }
+    }
+
+    // --- Funnel Charts ---
+    if (chartData.funnel_charts) {
+        const funnelCharts = chartData.funnel_charts;
+
+        if (funnelCharts.stage_chart) {
+            funnelCharts.stage_chart.options = funnelCharts.stage_chart.options || {};
+            funnelCharts.stage_chart.options.plugins = funnelCharts.stage_chart.options.plugins || {};
+            funnelCharts.stage_chart.options.plugins.datalabels = {
+                display: true,
+                align: 'end',
+                anchor: 'end',
+                color: '#444',
+                font: { weight: 'bold' },
+                formatter: function(value) {
+                    if (value === null || typeof value === 'undefined') return '';
+                    return Math.round(value);
+                }
+            };
+            initializeChart('stageChart', funnelCharts.stage_chart);
+        }
+
+        if (funnelCharts.continuation_chart) {
+            funnelCharts.continuation_chart.options = funnelCharts.continuation_chart.options || {};
+            funnelCharts.continuation_chart.options.plugins = funnelCharts.continuation_chart.options.plugins || {};
+            funnelCharts.continuation_chart.options.plugins.datalabels = {
+                display: true,
+                align: 'end',
+                anchor: 'end',
+                color: '#444',
+                font: { weight: 'bold' },
+                formatter: function(value) {
+                    if (value === null || typeof value === 'undefined') return '';
+                    return parseFloat(value).toFixed(1) + '%';
+                }
+            };
+            initializeChart('continuationChart', funnelCharts.continuation_chart);
+        }
+
+        if (funnelCharts.distribution_chart) {
+            // トップレベルの datalabels 設定 (ここでは主に display: false か、共通スタイル)
+            funnelCharts.distribution_chart.options = funnelCharts.distribution_chart.options || {};
+            funnelCharts.distribution_chart.options.plugins = funnelCharts.distribution_chart.options.plugins || {};
+            funnelCharts.distribution_chart.options.plugins.datalabels = {
+                display: false, // 各データセットで制御
+            };
+            // データセットごとのフォーマッタ設定
+            if (funnelCharts.distribution_chart.data && funnelCharts.distribution_chart.data.datasets) {
+                funnelCharts.distribution_chart.data.datasets.forEach(dataset => {
+                    if (dataset.label === '顧客数') {
+                        dataset.datalabels = {
+                            display: true,
+                            align: 'end',
+                            anchor: 'end',
+                            color: '#444',
+                            font: { weight: 'bold' },
+                            formatter: function(value) {
+                                if (value === null || typeof value === 'undefined') return '';
+                                return Math.round(value);
+                            }
+                        };
+                    } else if (dataset.label === '累積割合 (%)') {
+                        dataset.datalabels = {
+                            display: true,
+                            align: 'top',
+                            anchor: 'end',
+                            color: '#444',
+                            font: { weight: 'bold' },
+                            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                            borderRadius: 4,
+                            padding: 4,
+                            formatter: function(value) {
+                                if (value === null || typeof value === 'undefined') return '';
+                                return parseFloat(value).toFixed(1) + '%';
+                            }
+                        };
+                    }
+                });
+            }
+            initializeChart('distributionChart', funnelCharts.distribution_chart);
+        }
+    }
+
+    // --- Stylist Charts ---
+    if (chartData.stylist_charts && chartData.stylist_charts.rate_chart) {
+        const stylistChartConfig = chartData.stylist_charts.rate_chart;
+        stylistChartConfig.options = stylistChartConfig.options || {};
+        stylistChartConfig.options.plugins = stylistChartConfig.options.plugins || {};
+        stylistChartConfig.options.plugins.datalabels = {
+            display: true,
+            align: 'end',
+            anchor: 'end',
+            color: '#444',
+            font: { weight: 'bold' },
+            formatter: function(value) {
+                if (value === null || typeof value === 'undefined') return '';
+                return parseFloat(value).toFixed(1) + '%'; // X回以上リピート率
+            }
+        };
+        initializeChart('stylistRateChart', stylistChartConfig);
+    }
     
-    // chartData が null や undefined でないことを念のため確認
-    if (chartData) {
-        // ファネル分析チャート
-        if (chartData.funnel_charts && chartData.funnel_charts.stage_chart) {
-            createChart('stageChart', chartData.funnel_charts.stage_chart);
+    // --- Coupon Charts ---
+    if (chartData.coupon_charts) {
+        if (chartData.coupon_charts.rate_chart) {
+            const couponRateChartConfig = chartData.coupon_charts.rate_chart;
+            couponRateChartConfig.options = couponRateChartConfig.options || {};
+            couponRateChartConfig.options.plugins = couponRateChartConfig.options.plugins || {};
+            couponRateChartConfig.options.plugins.datalabels = {
+                // display: true, // 関数で制御するためコメントアウトまたは削除
+                align: 'end',
+                anchor: 'end',
+                color: '#444',
+                font: { weight: 'bold' },
+                formatter: function(value) {
+                    if (value === null || typeof value === 'undefined' || value === 0) return ''; // 0も非表示に
+                    return parseFloat(value).toFixed(1) + '%';
+                },
+                display: function(context) {
+                    const dataset = context.dataset;
+                    const currentValue = dataset.data[context.dataIndex];
+                    if (currentValue === null || typeof currentValue === 'undefined' || currentValue === 0) {
+                        return false;
+                    }
+                    // データセット内の値を降順ソートして上位3つの値を取得（重複はそのまま）
+                    const sortedData = [...dataset.data].filter(val => val !== null && typeof val !== 'undefined').sort((a, b) => b - a);
+                    const topValues = sortedData.slice(0, 3);
+                    // 現在の値が上位3つの値のいずれかと同じであれば表示 (ただし、データポイントが3つ未満の場合は全て表示)
+                    if (dataset.data.filter(val => val !== null && typeof val !== 'undefined' && val > 0).length <= 3) {
+                        return true;
+                    }
+                    return topValues.includes(currentValue);
+                }
+            };
+            initializeChart('couponRateChart', couponRateChartConfig);
         }
-        
-        if (chartData.funnel_charts && chartData.funnel_charts.continuation_chart) {
-            createChart('continuationChart', chartData.funnel_charts.continuation_chart);
+        if (chartData.coupon_charts.repeat_chart) {
+            const couponRepeatChartConfig = chartData.coupon_charts.repeat_chart;
+            couponRepeatChartConfig.options = couponRepeatChartConfig.options || {};
+            couponRepeatChartConfig.options.plugins = couponRepeatChartConfig.options.plugins || {};
+            couponRepeatChartConfig.options.plugins.datalabels = {
+                // display: true, // 関数で制御
+                align: 'end',
+                anchor: 'end',
+                color: '#444',
+                font: { weight: 'bold' },
+                formatter: function(value) { 
+                    if (value === null || typeof value === 'undefined' || value === 0) return '';
+                    return parseFloat(value).toFixed(1) + '回'; 
+                },
+                display: function(context) {
+                    const dataset = context.dataset;
+                    const currentValue = dataset.data[context.dataIndex];
+                    if (currentValue === null || typeof currentValue === 'undefined' || currentValue === 0) {
+                        return false;
+                    }
+                    const sortedData = [...dataset.data].filter(val => val !== null && typeof val !== 'undefined').sort((a, b) => b - a);
+                    const topValues = sortedData.slice(0, 3);
+                    if (dataset.data.filter(val => val !== null && typeof val !== 'undefined' && val > 0).length <= 3) {
+                        return true;
+                    }
+                    return topValues.includes(currentValue);
+                }
+            };
+            initializeChart('couponRepeatChart', couponRepeatChartConfig);
         }
-        
-        if (chartData.funnel_charts && chartData.funnel_charts.distribution_chart) {
-            createChart('distributionChart', chartData.funnel_charts.distribution_chart);
+    }
+
+    // --- Target Charts ---
+    if (chartData.target_charts && chartData.target_charts.comparison_chart) {
+        const targetChartConfig = chartData.target_charts.comparison_chart;
+        targetChartConfig.options = targetChartConfig.options || {};
+        targetChartConfig.options.plugins = targetChartConfig.options.plugins || {};
+        targetChartConfig.options.plugins.datalabels = {
+             display: false // 複合グラフなのでデータセットごとに設定
+        };
+        if (targetChartConfig.data && targetChartConfig.data.datasets) {
+            targetChartConfig.data.datasets.forEach(dataset => {
+                dataset.datalabels = {
+                    display: true,
+                    align: 'center', // 中央が見やすいことが多い
+                    anchor: 'center',
+                    color: dataset.type === 'line' ? '#222' : '#fff', // 線グラフは暗色、棒グラフは明色
+                    font: { weight: 'bold' },
+                    formatter: function(value) {
+                        if (value === null || typeof value === 'undefined') return '';
+                        // 「目標顧客数」と「実績顧客数」は整数、「目標リピート率」と「実績リピート率」は%
+                        if (dataset.label.includes('率')) {
+                            return parseFloat(value).toFixed(1) + '%';
+                        } else if (dataset.label.includes('数')) {
+                            return Math.round(value);
+                        }
+                        return parseFloat(value).toFixed(1); // デフォルト
+                    }
+                };
+            });
         }
-        
-        // スタイリスト分析チャート
-        if (chartData.stylist_charts && chartData.stylist_charts.rate_chart) {
-            createChart('stylistRateChart', chartData.stylist_charts.rate_chart);
+        initializeChart('targetComparisonChart', targetChartConfig);
+    }
+
+    // --- Period Charts ---
+    const periodChartContainer = document.getElementById('periodDistributionChartContainer');
+    if (chartData.period_charts && chartData.period_charts.period_chart) {
+        const periodChartConfig = chartData.period_charts.period_chart;
+        console.log('[DEBUG] periodDistributionChart - Config:', JSON.parse(JSON.stringify(periodChartConfig || {})));
+        if (periodChartConfig && periodChartConfig.options && periodChartConfig.options.plugins) {
+            periodChartConfig.options.plugins.datalabels = {
+                display: true,
+                align: 'end',
+                anchor: 'end',
+                color: '#444',
+                font: { weight: 'bold' },
+                formatter: function(value) {
+                    if (value === null || typeof value === 'undefined') return '';
+                    return Math.round(value);
+                }
+            };
+        } else if (periodChartConfig) {
+             // Configはあるがoptionsやpluginsがない場合、初期化
+            periodChartConfig.options = periodChartConfig.options || {};
+            periodChartConfig.options.plugins = periodChartConfig.options.plugins || {};
+            periodChartConfig.options.plugins.datalabels = { /* 上記と同様のformatter */ display: true, align: 'end', anchor: 'end', color: '#444', font: {weight: 'bold'}, formatter: function(value) {if (value === null || typeof value === 'undefined') return ''; return Math.round(value);} };
         }
-        
-        // クーポン分析チャート
-        if (chartData.coupon_charts && chartData.coupon_charts.rate_chart) {
-            createChart('couponRateChart', chartData.coupon_charts.rate_chart);
+        initializeChart('periodDistributionChart', periodChartConfig);
+    } else {
+        console.log('[DEBUG] periodDistributionChart - Config not found. chartData.period_charts:', JSON.parse(JSON.stringify(chartData.period_charts || {})));
+        if (periodChartContainer) {
+            periodChartContainer.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>グラフ設定が見つかりません (periodDistributionChart)。</div>`;
         }
-        
-        if (chartData.coupon_charts && chartData.coupon_charts.repeat_chart) {
-            createChart('couponRepeatChart', chartData.coupon_charts.repeat_chart);
+    }
+    
+    // --- Monthly Charts ---
+    const monthlyNewCustomersChartContainer = document.getElementById('monthlyNewCustomersChartContainer');
+    const monthlyRepeatRateChartContainer = document.getElementById('monthlyRepeatRateChartContainer');
+
+    if (chartData.monthly_charts) {
+        if (chartData.monthly_charts.new_customers_chart) {
+            const monthlyNewVsRepeatConfig = chartData.monthly_charts.new_customers_chart;
+            console.log('[DEBUG] monthlyNewCustomersChart - Config:', JSON.parse(JSON.stringify(monthlyNewVsRepeatConfig || {})));
+            if (monthlyNewVsRepeatConfig && monthlyNewVsRepeatConfig.options && monthlyNewVsRepeatConfig.options.plugins) {
+                monthlyNewVsRepeatConfig.options.plugins.datalabels = {
+                    display: false // データセットごとに設定するため基本はfalse
+                };
+                 if (monthlyNewVsRepeatConfig.data && monthlyNewVsRepeatConfig.data.datasets) {
+                    monthlyNewVsRepeatConfig.data.datasets.forEach(dataset => {
+                        dataset.datalabels = {
+                            display: true,
+                            align: 'end',
+                            anchor: 'end',
+                            color: '#444',
+                            font: { weight: 'bold' },
+                            formatter: function(value) { // 新規顧客数、リピート顧客数
+                                if (value === null || typeof value === 'undefined') return '';
+                                return Math.round(value);
+                            }
+                        };
+                    });
+                }
+            } else if (monthlyNewVsRepeatConfig) {
+                monthlyNewVsRepeatConfig.options = monthlyNewVsRepeatConfig.options || {};
+                monthlyNewVsRepeatConfig.options.plugins = monthlyNewVsRepeatConfig.options.plugins || {};
+                monthlyNewVsRepeatConfig.options.plugins.datalabels = {display: false};
+                 if (monthlyNewVsRepeatConfig.data && monthlyNewVsRepeatConfig.data.datasets) { /*上記と同様のdataset formatter*/ monthlyNewVsRepeatConfig.data.datasets.forEach(dataset => {dataset.datalabels = {display: true, align: 'end', anchor: 'end', color: '#444', font: {weight: 'bold'}, formatter: function(value) {if (value === null || typeof value === 'undefined') return ''; return Math.round(value);}};});}
+            }
+            initializeChart('monthlyNewCustomersChart', monthlyNewVsRepeatConfig);
+        } else {
+            console.log('[DEBUG] monthlyNewCustomersChart - Config not found. chartData.monthly_charts:', JSON.parse(JSON.stringify(chartData.monthly_charts || {})));
+            if (monthlyNewCustomersChartContainer) {
+                monthlyNewCustomersChartContainer.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>グラフ設定が見つかりません (monthlyNewCustomersChart)。</div>`;
+            }
         }
-        
-        // 目標値比較チャート
-        if (chartData.target_charts && chartData.target_charts.comparison_chart) {
-            createChart('targetComparisonChart', chartData.target_charts.comparison_chart);
-        }
-        
-        // 期間分析チャート
-        if (chartData.period_charts && chartData.period_charts.period_chart) {
-            createChart('periodChart', chartData.period_charts.period_chart);
-        }
-        
-        // 月別トレンドチャート
-        if (chartData.monthly_charts && chartData.monthly_charts.new_customers_chart) {
-            createChart('monthlyNewChart', chartData.monthly_charts.new_customers_chart);
-        }
-        
-        if (chartData.monthly_charts && chartData.monthly_charts.repeat_rate_chart) {
-            createChart('monthlyRepeatChart', chartData.monthly_charts.repeat_rate_chart);
+
+        if (chartData.monthly_charts.repeat_rate_chart) {
+            const monthlyRateConfig = chartData.monthly_charts.repeat_rate_chart;
+            console.log('[DEBUG] monthlyRepeatRateChart - Config:', JSON.parse(JSON.stringify(monthlyRateConfig || {})));
+            if (monthlyRateConfig && monthlyRateConfig.options && monthlyRateConfig.options.plugins) {
+                monthlyRateConfig.options.plugins.datalabels = {
+                    display: true,
+                    align: 'top',
+                    anchor: 'end',
+                    color: '#444',
+                    font: { weight: 'bold' },
+                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                    borderRadius: 4,
+                    padding: 3,
+                    formatter: function(value) { // リピート率
+                        if (value === null || typeof value === 'undefined') return '';
+                        return parseFloat(value).toFixed(1) + '%';
+                    }
+                };
+            } else if (monthlyRateConfig) {
+                monthlyRateConfig.options = monthlyRateConfig.options || {};
+                monthlyRateConfig.options.plugins = monthlyRateConfig.options.plugins || {};
+                monthlyRateConfig.options.plugins.datalabels = { /* 上記と同様のformatter */ display: true, align: 'top', anchor: 'end', color: '#444', font: {weight: 'bold'}, backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 4, padding: 3, formatter: function(value) {if (value === null || typeof value === 'undefined') return ''; return parseFloat(value).toFixed(1) + '%';} };
+            }
+            initializeChart('monthlyRepeatRateChart', monthlyRateConfig);
+        } else {
+            console.log('[DEBUG] monthlyRepeatRateChart - Config not found. chartData.monthly_charts:', JSON.parse(JSON.stringify(chartData.monthly_charts || {})));
+            if (monthlyRepeatRateChartContainer) {
+                monthlyRepeatRateChartContainer.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>グラフ設定が見つかりません (monthlyRepeatRateChart)。</div>`;
+            }
         }
     } else {
-        console.error("chartData is null or undefined. Server might not be sending data correctly.");
+        console.log('[DEBUG] chartData.monthly_charts itself is not defined.');
+        if (monthlyNewCustomersChartContainer) monthlyNewCustomersChartContainer.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>月次データ未生成 (monthlyNewCustomersChart)。</div>`;
+        if (monthlyRepeatRateChartContainer) monthlyRepeatRateChartContainer.innerHTML = `<div class="alert alert-light text-center p-3"><i class="fas fa-info-circle me-1"></i>月次データ未生成 (monthlyRepeatRateChart)。</div>`;
     }
+    
+    // Export functionality (if not already in app.js)
+    window.Export = {
+        downloadReport: function() {
+            // Add timestamp to prevent caching issues if any
+            window.location.href = '{{ url_for("generate_report") }}?t=' + new Date().getTime();
+        }
+    };
 });
 </script>
 {% endblock %} 
