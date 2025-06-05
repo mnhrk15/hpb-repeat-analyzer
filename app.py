@@ -21,7 +21,7 @@ from modules.visualization import DashboardVisualizer
 from modules.report_generator import ReportGenerator
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-very-secret-and-complex-key-here'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_for_local_flask_run')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_DATA_FOLDER'] = 'processed_data'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
