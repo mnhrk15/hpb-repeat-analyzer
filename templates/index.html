@@ -3,14 +3,14 @@
 {% block title %}ホーム - 美容室顧客データリピート分析システム{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container main-content">
     <div class="row">
         <div class="col-12">
-            <h1 class="display-4 text-center mb-5">
-                <i class="fas fa-chart-line text-primary me-3"></i>
-                美容室顧客データリピート分析システム
+            <h1 class="display-5 text-center mb-4">
+                <i class="fas fa-chart-line me-3" style="color: var(--primary-color);"></i>
+                <span style="background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">美容室顧客データリピート分析システム</span>
             </h1>
-            <p class="lead text-center text-muted mb-5">
+            <p class="lead text-center mb-5" style="color: var(--light-text);">
                 CSVファイルをアップロードして、新規顧客のリピート状況を詳細に分析できます
             </p>
         </div>
@@ -19,20 +19,20 @@
     <!-- Upload Section -->
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
+            <div class="card">
+                <div class="section-header">
+                    <h4 class="section-title mb-0">
                         <i class="fas fa-upload me-2"></i>
                         1. CSVファイルアップロード
                     </h4>
                 </div>
                 <div class="card-body">
                     <form id="uploadForm" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <label for="csvFiles" class="form-label">CSVファイルを選択してください（複数選択可）</label>
+                        <div class="mb-4">
+                            <label for="csvFiles" class="form-label fw-medium">CSVファイルを選択してください（複数選択可）</label>
                             <input type="file" class="form-control" id="csvFiles" name="csv_files" multiple accept=".csv" required>
-                            <div class="form-text">
-                                <i class="fas fa-info-circle text-info me-1"></i>
+                            <div class="form-text mt-2">
+                                <i class="fas fa-info-circle me-1" style="color: var(--accent-color);"></i>
                                 来店履歴データのCSVファイルを選択してください。複数ファイルの同時アップロードが可能です。
                             </div>
                         </div>
@@ -62,11 +62,11 @@
     </div>
 
     <!-- Analysis Settings Section -->
-    <div class="row justify-content-center mt-4" id="settingsSection" style="display: none;">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-success text-white">
-                    <h4 class="mb-0">
+    <div class="row mt-5" id="settingsSection" style="display: none;">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="section-header success-gradient">
+                    <h4 class="section-title mb-0">
                         <i class="fas fa-cog me-2"></i>
                         2. 分析設定
                     </h4>
@@ -76,7 +76,7 @@
                         <!-- 期間設定 -->
                         <div class="row mb-4">
                             <div class="col-12">
-                                <h5 class="border-bottom pb-2">期間設定</h5>
+                                <h5 class="border-bottom pb-2 fw-bold" style="color: var(--primary-color);">期間設定</h5>
                             </div>
                             <div class="col-md-6">
                                 <label for="newCustomerStart" class="form-label">新規顧客抽出開始日</label>
@@ -95,7 +95,7 @@
                         <!-- 分析パラメータ -->
                         <div class="row mb-4">
                             <div class="col-12">
-                                <h5 class="border-bottom pb-2">分析パラメータ</h5>
+                                <h5 class="border-bottom pb-2 fw-bold" style="color: var(--primary-color);">分析パラメータ</h5>
                             </div>
                             <div class="col-md-4">
                                 <label for="minRepeatCount" class="form-label">X回以上リピート基準</label>
@@ -124,7 +124,7 @@
                         </div>
 
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-success btn-lg">
+                            <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="fas fa-play me-2"></i>
                                 分析を開始
                             </button>
@@ -257,6 +257,11 @@ document.addEventListener('DOMContentLoaded', function() {
             min_coupon_customers: document.getElementById('minCouponCustomers').value
         };
         
+        // 分析ボタンを無効化
+        const submitButton = this.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> 分析中...';
+        
         // Show progress
         document.getElementById('analysisProgress').style.display = 'block';
         
@@ -278,12 +283,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Redirect to dashboard
                 window.location.href = result.redirect_url;
             } else {
-                alert('分析エラー: ' + result.error);
+                // 分析ボタンを元に戻す
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-play me-2"></i> 分析を開始';
+                
+                // エラー表示をもっとモダンに
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger mt-3 animate__animated animate__fadeIn';
+                alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> ${result.error}`;
+                document.getElementById('analysisForm').appendChild(alertDiv);
+                
+                // 5秒後にエラーメッセージを消す
+                setTimeout(() => {
+                    alertDiv.classList.add('animate__fadeOut');
+                    setTimeout(() => alertDiv.remove(), 500);
+                }, 5000);
             }
             
         } catch (error) {
+            // Hide progress and restore button
             document.getElementById('analysisProgress').style.display = 'none';
-            alert('分析エラー: ' + error.message);
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-play me-2"></i> 分析を開始';
+            
+            // モダンなエラー表示
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger mt-3 animate__animated animate__fadeIn';
+            alertDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> 分析エラー: ${error.message}`;
+            document.getElementById('analysisForm').appendChild(alertDiv);
+            
+            // 5秒後にエラーメッセージを消す
+            setTimeout(() => {
+                alertDiv.classList.add('animate__fadeOut');
+                setTimeout(() => alertDiv.remove(), 500);
+            }, 5000);
         }
     });
 });

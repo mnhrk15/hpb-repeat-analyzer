@@ -682,11 +682,13 @@ class DashboardVisualizer:
         stylist_analysis = results.get('stylist_analysis', {})
         coupon_analysis = results.get('coupon_analysis', {})
         basic_stats = results.get('basic_stats', {})
+        target_comparison_data = results.get('target_comparison', {})
         min_repeat_count_for_header = basic_stats.get('min_repeat_count', 'X')
 
         stylist_stats = stylist_analysis.get('stylist_stats', [])
         coupon_stats = coupon_analysis.get('coupon_stats', [])
 
+        # スタイリストテーブル生成
         stylist_table_headers = ['スタイリスト名', '担当新規顧客数', '初回リピート率(%)', f"{min_repeat_count_for_header}回以上リピート率(%)"]
         stylist_table_rows = []
         if stylist_stats:
@@ -705,6 +707,7 @@ class DashboardVisualizer:
             'rows': stylist_table_rows
         }
         
+        # クーポンテーブル生成
         coupon_table_headers = ['クーポン名', '利用顧客数', '初回リピート率(%)', f"{min_repeat_count_for_header}回以上リピート率(%)", '平均リピート回数']
         coupon_table_rows = []
         if coupon_stats:
@@ -724,7 +727,44 @@ class DashboardVisualizer:
             'rows': coupon_table_rows
         }
 
+        # 目標と実績の比較テーブル生成
+        target_comparison_table = []
+        target_rates = target_comparison_data.get('target_rates', {})
+        actual_rates = target_comparison_data.get('actual_rates', {})
+        stages = [('初回リピート', 'first_repeat'), ('2回目リピート', 'second_repeat'), ('3回目リピート', 'third_repeat')]
+        
+        for stage_name, stage_key in stages:
+            target = target_rates.get(stage_key, 0.0)
+            actual = actual_rates.get(stage_key, 0.0)
+            achievement = 0 if target == 0 else (actual / target) * 100
+            
+            target_comparison_table.append({
+                'stage': stage_name,
+                'target_rate': f"{target:.1f}%",
+                'actual_rate': f"{actual:.1f}%",
+                'achievement_rate': f"{min(achievement, 100):.1f}%"
+            })
+        
+        # 目標達成に必要な追加顧客数テーブル生成
+        additional_customers_table = []
+        required_additional = target_comparison_data.get('required_additional', {})
+        
+        for stage_name, stage_key in stages:
+            required_data = required_additional.get(stage_key, {})
+            target_count = required_data.get('target_count', 0)
+            current_count = required_data.get('current_count', 0)
+            additional_needed = required_data.get('additional_needed', 0)
+            
+            additional_customers_table.append({
+                'stage': stage_name,
+                'target_count': target_count,
+                'current_count': current_count,
+                'additional_needed': additional_needed
+            })
+
         return {
             'stylist_table': stylist_table,
-            'coupon_table': coupon_table
-        } 
+            'coupon_table': coupon_table,
+            'target_comparison_table': target_comparison_table,
+            'additional_customers_table': additional_customers_table
+        }

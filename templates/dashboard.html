@@ -3,44 +3,47 @@
 {% block title %}ダッシュボード - 美容室顧客データリピート分析システム{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid main-content">
     <!-- Header Section -->
-    <div class="row mb-4">
+    <div class="row mb-5">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h2 mb-1">リピート分析ダッシュボード</h1>
-                    <p class="text-muted mb-0">
-                        分析期間: {{ parameters.new_customer_start }} ～ {{ parameters.new_customer_end }}
-                        （リピート集計終了: {{ parameters.repeat_analysis_end }}）
-                    </p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
-                        <i class="fas fa-print me-1"></i>印刷
-                    </button>
-                    <button type="button" class="btn btn-success" onclick="Export.downloadReport()">
-                        <i class="fas fa-download me-1"></i>レポート出力
-                    </button>
-                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-1"></i>戻る
-                    </a>
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div>
+                            <h1 class="h2 mb-2" style="color: var(--primary-color); font-weight: 700;">リピート分析ダッシュボード</h1>
+                            <p style="color: var(--light-text);" class="mb-0">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                分析期間: <span class="fw-medium">{{ parameters.new_customer_start }} ～ {{ parameters.new_customer_end }}</span>
+                                <span class="ms-2 badge bg-light text-dark">リピート集計終了: {{ parameters.repeat_analysis_end }}</span>
+                            </p>
+                        </div>
+                        <div class="d-flex gap-2 mt-3 mt-md-0">
+                            <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                                <i class="fas fa-print me-1"></i>印刷
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="Export.downloadReport()">
+                                <i class="fas fa-download me-1"></i>レポート出力
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>戻る
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Summary Cards -->
-    <div class="row mb-4">
+    <div class="row mb-5">
         {% for card in data.summary_cards %}
-        <div class="col-md-3 col-sm-6">
-            <div class="card summary-card bg-{{ card.color }} border-0 position-relative">
-                <div class="card-body">
-                    <div class="card-title">{{ card.title }}</div>
-                    <div class="card-value">{{ card.value }}</div>
-                    <div class="card-unit">{{ card.unit }}</div>
-                    <i class="fas fa-{{ card.icon }} card-icon"></i>
-                </div>
+        <div class="col-md-3 col-sm-6 mb-4 mb-md-0">
+            <div class="summary-card {% if card.color == 'primary' %}{% elif card.color == 'success' %}success-gradient{% elif card.color == 'info' %}info-gradient{% elif card.color == 'warning' %}warning-gradient{% else %}{{ card.color }}-gradient{% endif %}">
+                <div class="card-title">{{ card.title }}</div>
+                <div class="card-value">{{ card.value }}</div>
+                <div class="card-unit">{{ card.unit }}</div>
+                <i class="fas fa-{{ card.icon }} card-icon"></i>
             </div>
         </div>
         {% endfor %}
@@ -65,7 +68,7 @@
                     <div class="row">
                         <!-- Stage Chart -->
                         <div class="col-lg-6">
-                            <div class="chart-container" id="stageChartContainer">
+                            <div class="chart-container dashboard-chart" id="stageChartContainer">
                                 <h5 class="chart-title">リピートステージ別顧客数</h5>
                                 <canvas id="stageChart"></canvas>
                             </div>
@@ -73,7 +76,7 @@
                         
                         <!-- Continuation Rate Chart -->
                         <div class="col-lg-6">
-                            <div class="chart-container" id="continuationChartContainer">
+                            <div class="chart-container dashboard-chart" id="continuationChartContainer">
                                 <h5 class="chart-title">ステージ間継続率</h5>
                                 <canvas id="continuationChart"></canvas>
                             </div>
@@ -83,8 +86,8 @@
                     <div class="row">
                         <!-- Distribution Chart -->
                         <div class="col-12">
-                            <div class="chart-container" id="distributionChartContainer">
-                                <h5 class="chart-title">リピート回数分布と累積割合</h5>
+                            <div class="chart-container dashboard-chart" id="distributionChartContainer">
+                                <h5 class="chart-title">リピート回数分布</h5>
                                 <canvas id="distributionChart"></canvas>
                             </div>
                         </div>
@@ -129,7 +132,7 @@
                     </div>
                     
                     {% if data.stylist_charts.rate_chart %}
-                    <div class="chart-container" id="stylistRateChartContainer">
+                    <div class="chart-container dashboard-chart" id="stylistRateChartContainer">
                         <h5 class="chart-title">スタイリスト別{{ parameters.min_repeat_count }}回以上リピート率</h5>
                         <canvas id="stylistRateChart"></canvas>
                     </div>
@@ -182,14 +185,14 @@
                     {% if data.coupon_charts.rate_chart %}
                     <div class="row">
                         <div class="col-lg-6">
-                            <div class="chart-container" id="couponRateChartContainer">
+                            <div class="chart-container dashboard-chart" id="couponRateChartContainer">
                                 <h5 class="chart-title">クーポン別{{ parameters.min_repeat_count }}回以上リピート率</h5>
                                 <canvas id="couponRateChart"></canvas>
                             </div>
                         </div>
                         
                         <div class="col-lg-6">
-                            <div class="chart-container" id="couponRepeatChartContainer">
+                            <div class="chart-container dashboard-chart" id="couponRepeatChartContainer">
                                 <h5 class="chart-title">クーポン別平均リピート回数</h5>
                                 <canvas id="couponRepeatChart"></canvas>
                             </div>
@@ -232,9 +235,9 @@
                     </div>
                     
                     <!-- Comparison Chart -->
-                    <div class "row mb-4">
+                    <div class="row mb-4">
                         <div class="col-12">
-                            <div class="chart-container" id="targetComparisonChartContainer">
+                            <div class="chart-container dashboard-chart" id="targetComparisonChartContainer">
                                 <h5 class="chart-title">リピート段階別 目標と実績</h5>
                                 <canvas id="targetComparisonChart"></canvas>
                             </div>
@@ -346,7 +349,7 @@
                     {% if data.period_charts.period_chart %}
                     <div class="row">
                         <div class="col-md-8 mx-auto">
-                            <div class="chart-container" id="periodDistributionChartContainer">
+                            <div class="chart-container dashboard-chart" id="periodDistributionChartContainer">
                                 <h5 class="chart-title">初回リピートまでの期間分布</h5>
                                 <canvas id="periodDistributionChart"></canvas>
                             </div>
@@ -376,14 +379,14 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-lg-6">
-                            <div class="chart-container" id="monthlyNewChartContainer">
+                            <div class="chart-container dashboard-chart" id="monthlyNewChartContainer">
                                 <h5 class="chart-title">月別新規顧客数推移</h5>
                                 <canvas id="monthlyNewChart"></canvas>
                             </div>
                         </div>
                         
                         <div class="col-lg-6">
-                            <div class="chart-container" id="monthlyRepeatChartContainer">
+                            <div class="chart-container dashboard-chart" id="monthlyRepeatChartContainer">
                                 <h5 class="chart-title">月別初回リピート率推移</h5>
                                 <canvas id="monthlyRepeatChart"></canvas>
                             </div>
@@ -411,13 +414,13 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-lg-6">
-                            <div class="chart-container" id="monthlyNewCustomersChartContainer">
+                            <div class="chart-container dashboard-chart" id="monthlyNewCustomersChartContainer">
                                 <h5 class="chart-title">月別新規顧客数とリピート顧客数</h5>
                                 <canvas id="monthlyNewCustomersChart"></canvas>
                             </div>
                         </div>
                         <div class="col-lg-6">
-                            <div class="chart-container" id="monthlyRepeatRateChartContainer">
+                            <div class="chart-container dashboard-chart" id="monthlyRepeatRateChartContainer">
                                 <h5 class="chart-title">月別リピート率</h5>
                                 <canvas id="monthlyRepeatRateChart"></canvas>
                             </div>
