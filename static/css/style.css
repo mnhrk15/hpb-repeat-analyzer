@@ -247,6 +247,23 @@ body {
     border-radius: 50%;
 }
 
+/* Ensure headings and icons within section-header are white */
+.section-header h1,
+.section-header h2,
+.section-header h3,
+.section-header h4,
+.section-header h5,
+.section-header h6,
+.section-header .section-title,
+.section-header i,
+.section-header .fas,
+.section-header .far,
+.section-header .fal,
+.section-header .fab,
+.section-header svg {
+    color: white !important;
+}
+
 .section-header .section-title {
     margin-bottom: 0.5rem;
     font-weight: 700;
@@ -308,6 +325,168 @@ body {
     border-top: 1px solid rgba(0,0,0,0.05);
     color: var(--light-text);
     margin-top: 2rem;
+}
+
+/* 印刷用スタイル */
+@media print {
+    body {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 10pt;
+        color: #000;
+        background-color: #fff !important; /* 背景を白に強制 */
+        padding-top: 0; /* 固定ナビゲーションバーの余白を削除 */
+        margin: 0;
+        -webkit-print-color-adjust: exact !important; /* Chrome/Safariで背景色・画像を印刷 */
+        print-color-adjust: exact !important; /* 標準的なプロパティ */
+    }
+
+    /* 非表示にする要素 */
+    .navbar,
+    .footer,
+    .btn,
+    .form-control[type="file"],
+    .alert-dismissible .btn-close,
+    .no-print /* 印刷時に非表示にしたい要素にこのクラスを付与 */
+    {
+        display: none !important;
+    }
+
+    /* ページ全体のレイアウト調整 */
+    .container,
+    .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .main-content {
+        padding: 10px 0;
+        min-height: auto;
+    }
+
+    /* カードスタイル調整 */
+    .card {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+    .card-header,
+    .card-body,
+    .card-footer {
+        background-color: #fff !important;
+        padding: 10px;
+    }
+    .card-header {
+        border-bottom: 1px solid #ccc !important;
+    }
+
+    /* テーブルスタイル調整 */
+    .table {
+        font-size: 9pt;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto; /* テーブル内での改ページを許可 */
+    }
+    .table th,
+    .table td {
+        border: 1px solid #999 !important;
+        padding: 4px 6px;
+        background-color: #fff !important; /* セルの背景色を強制的に白に */
+        color: #000 !important; /* 文字色を黒に */
+    }
+    .table thead th {
+        background-color: #eee !important;
+        font-weight: bold;
+    }
+    .table-responsive {
+        overflow-x: visible !important; /* テーブルがはみ出ても表示 */
+    }
+
+    /* チャートコンテナ調整 */
+    .chart-container,
+    .dashboard-chart {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important; /* 高さを自動調整 */
+        max-height: none !important;
+        overflow: visible !important;
+        page-break-inside: avoid;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    .chart-container canvas,
+    .dashboard-chart canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    /* 見出し調整 */
+    h1, h2, h3, h4, h5, h6 {
+        color: #000 !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+        font-weight: bold;
+    }
+    .section-header h2,
+    .section-header h3,
+    .section-header h4 {
+        font-size: 1.2rem; /* 少し小さく */
+    }
+
+    /* リンクのスタイル */
+    a {
+        color: #000 !important;
+        text-decoration: none !important; /* 下線を消すか、必要なら underline */
+    }
+    a[href^="http"]::after, 
+    a[href^="https"]::after {
+        content: " (" attr(href) ")"; /* 外部リンクのURLを表示 */
+        font-size: 0.8em;
+        color: #555;
+    }
+
+    /* ページ区切り */
+    .page-break {
+        page-break-before: always;
+    }
+
+    /* 特定の要素の調整 */
+    .summary-card .card-body {
+        padding: 10px;
+    }
+    .summary-card .icon-circle {
+        display: none; /* アイコンは印刷時には不要な場合が多い */
+    }
+
+    /* Bootstrapのグリッドシステムを印刷用に調整 */
+    .row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        margin-right: 0;
+        margin-left: 0;
+    }
+    .col, .col-1, .col-2, .col-3, .col-4, .col-5, .col-6, .col-7, .col-8, .col-9, .col-10, .col-11, .col-12,
+    .col-sm, .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12,
+    .col-md, .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7, .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12,
+    .col-lg, .col-lg-1, .col-lg-2, .col-lg-3, .col-lg-4, .col-lg-5, .col-lg-6, .col-lg-7, .col-lg-8, .col-lg-9, .col-lg-10, .col-lg-11, .col-lg-12,
+    .col-xl, .col-xl-1, .col-xl-2, .col-xl-3, .col-xl-4, .col-xl-5, .col-xl-6, .col-xl-7, .col-xl-8, .col-xl-9, .col-xl-10, .col-xl-11, .col-xl-12 {
+        padding-right: 5px;
+        padding-left: 5px;
+        /* 必要に応じて幅を%で指定し直す */
+        /* 例: .col-md-6 { flex: 0 0 50%; max-width: 50%; } */
+    }
+
+    /* グラデーションテキストは単色に */
+    .gradient-text {
+        background: none !important;
+        -webkit-background-clip: initial !important;
+        background-clip: initial !important; /* 標準プロパティを追加 */
+        -webkit-text-fill-color: initial !important;
+        color: #000 !important;
+    }
 }
 
 /* ボタンスタイル */
