@@ -49,3 +49,4 @@ uploads/
 flask_server.log
 reports/
 test_data/
+processed_data/

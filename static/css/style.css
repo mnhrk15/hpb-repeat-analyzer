@@ -43,7 +43,7 @@ body {
     font-size: 0.9rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: #6c757d;
+    color: #fff;
 }
 
 .summary-card .card-value {
@@ -55,7 +55,7 @@ body {
 
 .summary-card .card-unit {
     font-size: 1rem;
-    color: #6c757d;
+    color: #fff;
 }
 
 .summary-card .card-icon {
@@ -67,19 +67,19 @@ body {
 }
 
 .summary-card.bg-primary .card-value {
-    color: #0d6efd;
+    color: #fff;
 }
 
 .summary-card.bg-success .card-value {
-    color: #198754;
+    color: #fff;
 }
 
 .summary-card.bg-info .card-value {
-    color: #0dcaf0;
+    color: #fff;
 }
 
 .summary-card.bg-warning .card-value {
-    color: #ffc107;
+    color: #fff;
 }
 
 /* チャート */
@@ -123,24 +123,119 @@ body {
 
 /* セクションヘッダー */
 .section-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-color: #6a11cb; /* Primary dark purple */
+    background-image: linear-gradient(to right, #6a11cb 0%, #2575fc 100%); /* Gradient */
     color: white;
-    padding: 2rem;
-    border-radius: 12px 12px 0 0;
-    margin-bottom: 0;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px 8px 0 0; /* Rounded top corners */
 }
 
-.section-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+.section-header .section-title {
+    margin-bottom: 5px;
+    font-weight: bold;
 }
 
-.section-description {
-    font-size: 1rem;
+.section-header .section-description {
+    font-size: 0.9em;
     opacity: 0.9;
     margin-bottom: 0;
 }
+
+.chart-container {
+    background-color: #fff; /* White background for charts */
+    padding: 20px;
+    border-radius: 0 0 8px 8px; /* Rounded bottom corners to match section header */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px; /* Space below each chart container */
+    position: relative; /* Needed for Chart.js responsiveness and tooltips */
+    height: 280px; /* Default height for chart containers */
+}
+
+/* Specific heights for certain chart containers */
+#distributionChartContainer {
+    height: 240px;
+}
+
+#stylistRateChartContainer {
+    height: 360px;
+}
+
+.chart-title {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.table-custom {
+    margin-top: 15px;
+}
+
+.table-custom th {
+    background-color: #f8f9fa; /* Light grey for table headers */
+}
+
+.summary-card {
+    color: #fff; /* Ensure text is white on colored backgrounds */
+    border-radius: 8px;
+    margin-bottom: 20px; /* Add some space between cards */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease-in-out;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+}
+
+.summary-card .card-body {
+    padding: 15px;
+    position: relative; /* For icon positioning */
+}
+
+.summary-card .card-title {
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: rgba(255, 255, 255, 0.85); /* Slightly transparent white for title */
+}
+
+.summary-card .card-value {
+    font-size: 2em;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0px;
+    color: #fff; /* Explicitly white for the value */
+}
+
+.summary-card .card-unit {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.75); /* Slightly transparent white for unit */
+}
+
+.summary-card .card-icon {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 2.2em;
+    color: rgba(255, 255, 255, 0.2);
+}
+
+/* Specific background colors for summary cards (using Bootstrap classes directly is also an option) */
+.summary-card.bg-primary .card-value, .summary-card.bg-primary .card-unit, .summary-card.bg-primary .card-title { color: #fff; }
+.summary-card.bg-success .card-value, .summary-card.bg-success .card-unit, .summary-card.bg-success .card-title { color: #fff; }
+.summary-card.bg-info .card-value, .summary-card.bg-info .card-unit, .summary-card.bg-info .card-title { color: #fff; }
+.summary-card.bg-warning .card-value, .summary-card.bg-warning .card-unit, .summary-card.bg-warning .card-title { color: #000; } /* Warning usually has light bg, so dark text */
+.summary-card.bg-danger .card-value, .summary-card.bg-danger .card-unit, .summary-card.bg-danger .card-title { color: #fff; }
+
+
+/* Ensure summary card text is readable - these might be redundant if .summary-card color: #fff is effective */
+.summary-card.bg-primary .card-text, .summary-card.bg-primary .card-title, .summary-card.bg-primary .card-value, .summary-card.bg-primary .card-unit { color: #ffffff !important; }
+.summary-card.bg-success .card-text, .summary-card.bg-success .card-title, .summary-card.bg-success .card-value, .summary-card.bg-success .card-unit { color: #ffffff !important; }
+.summary-card.bg-info .card-text, .summary-card.bg-info .card-title, .summary-card.bg-info .card-value, .summary-card.bg-info .card-unit { color: #ffffff !important; }
+/* For warning, assuming a light yellow background where black text is better */
+.summary-card.bg-warning .card-text, .summary-card.bg-warning .card-title, .summary-card.bg-warning .card-value, .summary-card.bg-warning .card-unit { color: #212529 !important; } 
+.summary-card.bg-danger .card-text, .summary-card.bg-danger .card-title, .summary-card.bg-danger .card-value, .summary-card.bg-danger .card-unit { color: #ffffff !important; }
 
 /* アラート */
 .alert {

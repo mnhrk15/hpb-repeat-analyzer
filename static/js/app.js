@@ -36,6 +36,7 @@ function initializeApp() {
  * チャート作成ヘルパー関数
  */
 function createChart(canvasId, chartConfig) {
+    console.log("Attempting to create chart:", canvasId, JSON.parse(JSON.stringify(chartConfig)));
     const ctx = document.getElementById(canvasId);
     if (!ctx) {
         console.error(`Canvas element with id '${canvasId}' not found`);

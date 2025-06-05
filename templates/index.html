@@ -92,37 +92,6 @@
                             </div>
                         </div>
 
-                        <!-- 目標値設定 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="border-bottom pb-2">目標値設定（%）</h5>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="targetFirstRepeat" class="form-label">初回リピート率 目標値</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="targetFirstRepeat" 
-                                           name="target_first_repeat" value="35" min="0" max="100" step="0.1">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="targetSecondRepeat" class="form-label">2回目リピート率 目標値</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="targetSecondRepeat" 
-                                           name="target_second_repeat" value="45" min="0" max="100" step="0.1">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="targetThirdRepeat" class="form-label">3回目リピート率 目標値</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="targetThirdRepeat" 
-                                           name="target_third_repeat" value="60" min="0" max="100" step="0.1">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- 分析パラメータ -->
                         <div class="row mb-4">
                             <div class="col-12">
@@ -187,7 +156,6 @@
                     <ol class="mb-0">
                         <li><strong>CSVファイルをアップロード:</strong> 美容室の来店履歴データ（CSV形式）を選択してアップロードしてください。</li>
                         <li><strong>分析期間を設定:</strong> 新規顧客を抽出する期間と、リピート状況を集計する期間を指定してください。</li>
-                        <li><strong>目標値を設定:</strong> 各リピート段階の目標値を設定してください。</li>
                         <li><strong>分析を実行:</strong> 設定完了後、「分析を開始」ボタンをクリックしてください。</li>
                         <li><strong>結果を確認:</strong> 分析完了後、ダッシュボードで結果を確認できます。</li>
                     </ol>
@@ -244,6 +212,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         <small>総レコード数: ${result.total_records.toLocaleString()}件</small>
                     </div>`;
                 document.getElementById('settingsSection').style.display = 'block';
+
+                // Set dates from server response if available
+                if (result.min_date) {
+                    document.getElementById('newCustomerStart').value = result.min_date;
+                }
+                // Keep existing default for newCustomerEnd or let user decide
+                // document.getElementById('newCustomerEnd').value = result.max_date; // Example if we want to set it to max_date
+                if (result.max_date) {
+                    document.getElementById('repeatAnalysisEnd').value = result.max_date;
+                }
+
             } else {
                 document.getElementById('uploadResult').innerHTML = 
                     `<div class="alert alert-danger">
@@ -269,8 +248,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('analysisForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData.entries());
+        const analysisData = {
+            new_customer_start: document.getElementById('newCustomerStart').value,
+            new_customer_end: document.getElementById('newCustomerEnd').value,
+            repeat_analysis_end: document.getElementById('repeatAnalysisEnd').value,
+            min_repeat_count: document.getElementById('minRepeatCount').value,
+            min_stylist_customers: document.getElementById('minStylistCustomers').value,
+            min_coupon_customers: document.getElementById('minCouponCustomers').value
+        };
         
         // Show progress
         document.getElementById('analysisProgress').style.display = 'block';
@@ -281,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(analysisData)
             });
             
             const result = await response.json();

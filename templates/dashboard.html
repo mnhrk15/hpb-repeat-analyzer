@@ -65,17 +65,17 @@
                     <div class="row">
                         <!-- Stage Chart -->
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="stageChartContainer">
                                 <h5 class="chart-title">リピートステージ別顧客数</h5>
-                                <canvas id="stageChart" height="300"></canvas>
+                                <canvas id="stageChart"></canvas>
                             </div>
                         </div>
                         
                         <!-- Continuation Rate Chart -->
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="continuationChartContainer">
                                 <h5 class="chart-title">ステージ間継続率</h5>
-                                <canvas id="continuationChart" height="300"></canvas>
+                                <canvas id="continuationChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -83,9 +83,9 @@
                     <div class="row">
                         <!-- Distribution Chart -->
                         <div class="col-12">
-                            <div class="chart-container">
+                            <div class="chart-container" id="distributionChartContainer">
                                 <h5 class="chart-title">リピート回数分布と累積割合</h5>
-                                <canvas id="distributionChart" height="250"></canvas>
+                                <canvas id="distributionChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -129,9 +129,9 @@
                     </div>
                     
                     {% if data.stylist_charts.rate_chart %}
-                    <div class="chart-container">
+                    <div class="chart-container" id="stylistRateChartContainer">
                         <h5 class="chart-title">スタイリスト別{{ parameters.min_repeat_count }}回以上リピート率</h5>
-                        <canvas id="stylistRateChart" height="400"></canvas>
+                        <canvas id="stylistRateChart"></canvas>
                     </div>
                     {% else %}
                     <div class="alert alert-warning">
@@ -182,16 +182,16 @@
                     {% if data.coupon_charts.rate_chart %}
                     <div class="row">
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="couponRateChartContainer">
                                 <h5 class="chart-title">クーポン別{{ parameters.min_repeat_count }}回以上リピート率</h5>
-                                <canvas id="couponRateChart" height="300"></canvas>
+                                <canvas id="couponRateChart"></canvas>
                             </div>
                         </div>
                         
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="couponRepeatChartContainer">
                                 <h5 class="chart-title">クーポン別平均リピート回数</h5>
-                                <canvas id="couponRepeatChart" height="300"></canvas>
+                                <canvas id="couponRepeatChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -232,11 +232,11 @@
                     </div>
                     
                     <!-- Comparison Chart -->
-                    <div class="row mb-4">
+                    <div class "row mb-4">
                         <div class="col-12">
-                            <div class="chart-container">
+                            <div class="chart-container" id="targetComparisonChartContainer">
                                 <h5 class="chart-title">リピート段階別 目標と実績</h5>
-                                <canvas id="targetComparisonChart" height="300"></canvas>
+                                <canvas id="targetComparisonChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -346,9 +346,9 @@
                     {% if data.period_charts.period_chart %}
                     <div class="row">
                         <div class="col-md-8 mx-auto">
-                            <div class="chart-container">
+                            <div class="chart-container" id="periodChartContainer">
                                 <h5 class="chart-title">初回リピートまでの期間分布</h5>
-                                <canvas id="periodChart" height="300"></canvas>
+                                <canvas id="periodChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -375,16 +375,16 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="monthlyNewChartContainer">
                                 <h5 class="chart-title">月別新規顧客数推移</h5>
-                                <canvas id="monthlyNewChart" height="300"></canvas>
+                                <canvas id="monthlyNewChart"></canvas>
                             </div>
                         </div>
                         
                         <div class="col-lg-6">
-                            <div class="chart-container">
+                            <div class="chart-container" id="monthlyRepeatChartContainer">
                                 <h5 class="chart-title">月別初回リピート率推移</h5>
-                                <canvas id="monthlyRepeatChart" height="300"></canvas>
+                                <canvas id="monthlyRepeatChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -399,52 +399,57 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // チャートデータを渡す
-    const chartData = JSON.parse('{{ data | tojson }}');
+    const chartData = {{ data | tojson }};
     
-    // ファネル分析チャート
-    if (chartData.funnel_charts.stage_chart) {
-        createChart('stageChart', chartData.funnel_charts.stage_chart);
-    }
-    
-    if (chartData.funnel_charts.continuation_chart) {
-        createChart('continuationChart', chartData.funnel_charts.continuation_chart);
-    }
-    
-    if (chartData.funnel_charts.distribution_chart) {
-        createChart('distributionChart', chartData.funnel_charts.distribution_chart);
-    }
-    
-    // スタイリスト分析チャート
-    if (chartData.stylist_charts.rate_chart) {
-        createChart('stylistRateChart', chartData.stylist_charts.rate_chart);
-    }
-    
-    // クーポン分析チャート
-    if (chartData.coupon_charts.rate_chart) {
-        createChart('couponRateChart', chartData.coupon_charts.rate_chart);
-    }
-    
-    if (chartData.coupon_charts.repeat_chart) {
-        createChart('couponRepeatChart', chartData.coupon_charts.repeat_chart);
-    }
-    
-    // 目標値比較チャート
-    if (chartData.target_charts.comparison_chart) {
-        createChart('targetComparisonChart', chartData.target_charts.comparison_chart);
-    }
-    
-    // 期間分析チャート
-    if (chartData.period_charts.period_chart) {
-        createChart('periodChart', chartData.period_charts.period_chart);
-    }
-    
-    // 月別トレンドチャート
-    if (chartData.monthly_charts.new_customers_chart) {
-        createChart('monthlyNewChart', chartData.monthly_charts.new_customers_chart);
-    }
-    
-    if (chartData.monthly_charts.repeat_rate_chart) {
-        createChart('monthlyRepeatChart', chartData.monthly_charts.repeat_rate_chart);
+    // chartData が null や undefined でないことを念のため確認
+    if (chartData) {
+        // ファネル分析チャート
+        if (chartData.funnel_charts && chartData.funnel_charts.stage_chart) {
+            createChart('stageChart', chartData.funnel_charts.stage_chart);
+        }
+        
+        if (chartData.funnel_charts && chartData.funnel_charts.continuation_chart) {
+            createChart('continuationChart', chartData.funnel_charts.continuation_chart);
+        }
+        
+        if (chartData.funnel_charts && chartData.funnel_charts.distribution_chart) {
+            createChart('distributionChart', chartData.funnel_charts.distribution_chart);
+        }
+        
+        // スタイリスト分析チャート
+        if (chartData.stylist_charts && chartData.stylist_charts.rate_chart) {
+            createChart('stylistRateChart', chartData.stylist_charts.rate_chart);
+        }
+        
+        // クーポン分析チャート
+        if (chartData.coupon_charts && chartData.coupon_charts.rate_chart) {
+            createChart('couponRateChart', chartData.coupon_charts.rate_chart);
+        }
+        
+        if (chartData.coupon_charts && chartData.coupon_charts.repeat_chart) {
+            createChart('couponRepeatChart', chartData.coupon_charts.repeat_chart);
+        }
+        
+        // 目標値比較チャート
+        if (chartData.target_charts && chartData.target_charts.comparison_chart) {
+            createChart('targetComparisonChart', chartData.target_charts.comparison_chart);
+        }
+        
+        // 期間分析チャート
+        if (chartData.period_charts && chartData.period_charts.period_chart) {
+            createChart('periodChart', chartData.period_charts.period_chart);
+        }
+        
+        // 月別トレンドチャート
+        if (chartData.monthly_charts && chartData.monthly_charts.new_customers_chart) {
+            createChart('monthlyNewChart', chartData.monthly_charts.new_customers_chart);
+        }
+        
+        if (chartData.monthly_charts && chartData.monthly_charts.repeat_rate_chart) {
+            createChart('monthlyRepeatChart', chartData.monthly_charts.repeat_rate_chart);
+        }
+    } else {
+        console.error("chartData is null or undefined. Server might not be sending data correctly.");
     }
 });
 </script>

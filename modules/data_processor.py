@@ -351,4 +351,25 @@ class DataProcessor:
         
         logger.info(f"新規顧客抽出完了: {len(new_customers_detailed)}人")
         
-        return new_customers_detailed 
+        return new_customers_detailed
+    
+    def get_date_range(self, df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
+        """
+        データフレーム内の '来店日_parsed' カラムから最初と最後の日付を取得する
+
+        Args:
+            df: 処理済みのデータフレーム
+
+        Returns:
+            (最初の日付文字列, 最後の日付文字列) or (None, None)
+        """
+        if '来店日_parsed' not in df.columns or df['来店日_parsed'].isnull().all():
+            return None, None
+        
+        try:
+            min_date = df['来店日_parsed'].min().strftime('%Y-%m-%d')
+            max_date = df['来店日_parsed'].max().strftime('%Y-%m-%d')
+            return min_date, max_date
+        except Exception as e:
+            logger.error(f"日付範囲の取得エラー: {str(e)}")
+            return None, None 

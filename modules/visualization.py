@@ -106,6 +106,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -138,6 +139,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -183,6 +185,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -228,7 +231,7 @@ class DashboardVisualizer:
         rates = [s['x_plus_rate'] for s in stylist_data['stylist_stats']]
         
         rate_chart = {
-            'type': 'horizontalBar',
+            'type': 'bar',
             'data': {
                 'labels': stylists,
                 'datasets': [{
@@ -240,7 +243,9 @@ class DashboardVisualizer:
                 }]
             },
             'options': {
+                'indexAxis': 'y',
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -273,7 +278,7 @@ class DashboardVisualizer:
         rates = [c['x_plus_rate'] for c in coupon_data['coupon_stats']]
         
         rate_chart = {
-            'type': 'horizontalBar',
+            'type': 'bar',
             'data': {
                 'labels': coupons,
                 'datasets': [{
@@ -285,7 +290,9 @@ class DashboardVisualizer:
                 }]
             },
             'options': {
+                'indexAxis': 'y',
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -305,7 +312,7 @@ class DashboardVisualizer:
         avg_repeats = [c['avg_repeat_repeaters'] for c in coupon_data['coupon_stats']]
         
         repeat_chart = {
-            'type': 'horizontalBar',
+            'type': 'bar',
             'data': {
                 'labels': coupons,
                 'datasets': [{
@@ -317,7 +324,9 @@ class DashboardVisualizer:
                 }]
             },
             'options': {
+                'indexAxis': 'y',
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -378,6 +387,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -427,6 +437,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -467,6 +478,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -499,6 +511,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
+                'maintainAspectRatio': False,
                 'plugins': {
                     'title': {
                         'display': True,
