@@ -380,71 +380,94 @@ class DataProcessor:
     
     def get_new_customers(self, df: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
         """
-        指定期間内の新規顧客を抽出する。
-        新規顧客の定義: 「このサロンに行くのは初めてですか？」が True、または
-                      指定期間内の来店がその顧客の最初の来店である。
+        指定された期間の新規顧客を抽出する
 
         Args:
-            df: 顧客データフレーム (来店日カラムはdatetime型であること)
-            start_date: 新規顧客抽出期間の開始日 (YYYY-MM-DD)
-            end_date: 新規顧客抽出期間の終了日 (YYYY-MM-DD)
+            df: 全来店データ（顧客ID、来店日、このサロンに行くのは初めてですか？ を含む）
+            start_date: 新規顧客抽出開始日 (YYYY-MM-DD)
+            end_date: 新規顧客抽出終了日 (YYYY-MM-DD)
 
         Returns:
-            新規顧客のデータフレーム
+            新規顧客のデータフレーム（初回来店情報を含む）
         """
-        if '来店日' not in df.columns or not pd.api.types.is_datetime64_any_dtype(df['来店日']):
-            logger.error("get_new_customers: '来店日' カラムが存在しないか、datetime型ではありません。")
-            # 元のDataFrameの構造を維持しつつ空のDataFrameを返す
-            return pd.DataFrame(columns=df.columns)
-        
-        if '顧客ID' not in df.columns:
-            logger.error("get_new_customers: '顧客ID' カラムが存在しません。")
-            return pd.DataFrame(columns=df.columns)
+        logger.info(f"新規顧客抽出開始: 期間 {start_date} - {end_date}")
 
+        # 日付型に変換
         try:
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            start_dt = pd.to_datetime(start_date)
+            end_dt = pd.to_datetime(end_date)
         except ValueError as e:
-            logger.error(f"日付フォーマットエラー: {e}")
-            return pd.DataFrame(columns=df.columns)
+            logger.error(f"日付文字列の変換に失敗しました: {start_date}, {end_date} - {e}")
+            raise ValueError(f"日付文字列の形式が不正です。YYYY-MM-DD形式で指定してください: {e}")
+
+
+        # 必要なカラムの存在確認
+        required_cols = ['顧客ID', '来店日', 'このサロンに行くのは初めてですか？'] # この後 first_visit_flag_col で参照
+        for col in required_cols:
+            if col not in df.columns:
+                logger.error(f"get_new_customers: 必要なカラム '{col}' がDataFrameに存在しません。")
+                raise ValueError(f"必要なカラム '{col}' がDataFrameに存在しません。")
+
+        if not pd.api.types.is_datetime64_any_dtype(df['来店日']):
+            # 厳密には、ここでエラーを raise するか、変換を試みるかは設計次第
+            # _clean_visit_date で変換済みのはずなので、基本的にはここに来ない想定
+            logger.warning("get_new_customers: '来店日' カラムがdatetime型ではありません。事前に処理されているべきです。")
+            # df['来店日'] = pd.to_datetime(df['来店日'], errors='coerce') # 強制変換する場合
+            # df.dropna(subset=['来店日'], inplace=True) # 不正な日付を除去
+
+        first_visit_flag_col = 'このサロンに行くのは初めてですか？_bool'
+        if first_visit_flag_col not in df.columns:
+            # _bool カラムがない場合は元のカラム名で試すが、型や値のバリエーションに注意が必要
+            logger.warning(f"カラム '{first_visit_flag_col}' が見つかりません。元のカラム 'このサロンに行くのは初めてですか？' を使用しますが、ブール型への事前変換を推奨します。")
+            first_visit_flag_col = 'このサロンに行くのは初めてですか？'
+            if first_visit_flag_col not in df.columns: # 元のカラム名でも見つからない場合
+                 logger.error(f"get_new_customers: 新規判定フラグカラム ('{first_visit_flag_col}' または 'このサロンに行くのは初めてですか？_bool') がDataFrameに存在しません。")
+                 raise ValueError(f"新規判定フラグカラムが存在しません。")
+            # 元カラムの場合、Trueと評価されるべき値 (e.g., "はい", 1) も考慮が必要だが、
+            # ここでは _clean_boolean_flags で True/False になっていることを期待する
+            # df[first_visit_flag_col] = df[first_visit_flag_col].apply(lambda x: x == True or str(x).lower() == 'はい') # より堅牢な処理
+
+
+        # 新規顧客判定ロジックの変更
+        df_copy = df.copy()
+
+        if '顧客ID' not in df_copy.columns or '来店日' not in df_copy.columns:
+            logger.error("get_new_customers: '顧客ID'または'来店日'カラムがdf_copyに不足しています。")
+            return pd.DataFrame()
+
+        # 1. 各顧客の全期間における最初の来店日を計算
+        df_copy['全期間初回来店日'] = df_copy.groupby('顧客ID')['来店日'].transform('min')
+
+        # 2. 条件を定義
+        # 条件A: この来店が全期間初回来店である
+        condition_A = (df_copy['来店日'] == df_copy['全期間初回来店日'])
+        # 条件B: この来店で「初めてフラグ」がTrueである (事前にブール型になっている想定)
+        condition_B = (df_copy[first_visit_flag_col] == True)
+        # 条件C: この来店が指定期間内である
+        condition_C_period = (df_copy['来店日'] >= start_dt) & (df_copy['来店日'] <= end_dt)
+
+        # 3. 全ての条件を満たす来店記録を抽出
+        true_new_customer_visits = df_copy[condition_A & condition_B & condition_C_period]
+
+        if true_new_customer_visits.empty:
+            logger.info(f"指定期間 ({start_date} - {end_date}) に「初めてフラグTrue」かつ「全期間で初回来店」の顧客は見つかりませんでした。")
+            final_new_customers = pd.DataFrame()
+        else:
+            # 条件を満たす来店は顧客ごとにユニークのはず (初回来店かつフラグTrueはその顧客にとって1回のみ)
+            # もし万が一、同一顧客で複数の日付がこの条件を満たす場合（データ不整合）、
+            # idxmin()で最初の日付のものを取ることで一意にする。
+            final_new_customers = true_new_customer_visits.loc[
+                true_new_customer_visits.groupby('顧客ID')['来店日'].idxmin()
+            ].copy() # .copy() をつけてSettingWithCopyWarningを回避
+
+        # 分析結果に不要な作業列を削除
+        if '全期間初回来店日' in final_new_customers.columns:
+            final_new_customers.drop(columns=['全期間初回来店日'], inplace=True)
         
-        # 期間内データ抽出
-        period_filter = (df['来店日'] >= start_dt) & (df['来店日'] <= end_dt)
-        period_data = df[period_filter].copy()
-
-        if period_data.empty:
-            logger.info("指定期間内に来店記録がありません。")
-            return pd.DataFrame(columns=df.columns)
-
-        # 「初めて」フラグがTrueの顧客
-        explicit_new_customers = period_data[period_data['このサロンに行くのは初めてですか？'] == True].copy()
-
-        # 全データから顧客ごとの初回来店日を計算
-        # 注意: dfは全期間のデータ、period_dataは指定期間内のデータ
-        # ここではdf全体を使って、その顧客の「真の」初回来店日を特定する
-        all_first_visits = df.loc[df['来店日'].notna()].groupby('顧客ID')['来店日'].min().reset_index()
-        all_first_visits.rename(columns={'来店日': '真の初回来店日'}, inplace=True)
-        
-        # 期間内データに「真の初回来店日」をマージ
-        period_data_with_true_first_visit = pd.merge(period_data, all_first_visits, on='顧客ID', how='left')
-
-        # 指定期間内の来店が「真の初回来店日」と一致する顧客
-        # (「初めて」フラグがFalse/欠損でも、この条件で新規とみなせる)
-        implicit_new_customers = period_data_with_true_first_visit[
-            period_data_with_true_first_visit['来店日'] == period_data_with_true_first_visit['真の初回来店日']
-        ].copy()
-        
-        # 両者を結合し、重複を除去
-        new_customers_df = pd.concat([explicit_new_customers, implicit_new_customers]).drop_duplicates(subset=['顧客ID', '来店日']).sort_values(by=['顧客ID', '来店日'])
-
-        # 新規顧客の「初回来店日」カラムを明確にする (この文脈では期間内の来店日)
-        # ただし、RepeatAnalyzerは '初回来店日' というカラム名で、新規顧客期間内の最初の来店日を期待するため、
-        # ここでは new_customers_df の '来店日' を '初回来店日' として扱うか、
-        # RepeatAnalyzer側で解釈できるように、このメソッドの責務としては「新規顧客リスト」を返すに留める。
-        # 現状、RepeatAnalyzerは渡された新規顧客リストの '来店日' を見ているはずなので、カラム名は '来店日' のままで良い。
-
-        logger.info(f"抽出された新規顧客数: {len(new_customers_df)}件 (期間: {start_date}～{end_date})")
-        return new_customers_df
+        if not final_new_customers.empty:
+            logger.info(f"新規顧客抽出完了: {len(final_new_customers)}件。期間: {start_date} - {end_date}")
+        # '来店日' カラムはこの時点でその顧客の「初回来店日」を指している
+        return final_new_customers
 
     def get_date_range(self, df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
         """
