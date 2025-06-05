@@ -92,15 +92,19 @@ def upload_files():
         with open(processed_data_path, 'wb') as f:
             pickle.dump(combined_data, f)
             
+        # 元のアップロードファイルを削除
+        for p in file_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+                    app.logger.info(f"アップロードされたCSVファイルを削除しました: {p}")
+            except OSError as e:
+                app.logger.error(f"アップロードされたCSVファイルの削除に失敗しました: {p}, エラー: {e}")
+            
         session['processed_data_path'] = processed_data_path
         session['min_date'] = min_date
         session['max_date'] = max_date
         session['analysis_performed'] = False # 分析はまだ実行されていない
-        
-        # 元のアップロードファイルは不要になったら削除することも検討 (ディスク容量節約のため)
-        # for p in file_paths:
-        #     if os.path.exists(p):
-        #         os.remove(p)
 
         # アップロード成功時に analysis_results_path が残っていればクリア
         if session.get('analysis_results_path'):
