@@ -127,7 +127,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -173,7 +173,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -249,7 +249,7 @@ class DashboardVisualizer:
                 },
                 'options': {
                     'responsive': True,
-                    'maintainAspectRatio': False,
+                    'maintainAspectRatio': True,
                     'plugins': {
                         'title': {
                             'display': True,
@@ -333,7 +333,7 @@ class DashboardVisualizer:
             'options': {
                 'indexAxis': 'y',
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -396,7 +396,7 @@ class DashboardVisualizer:
             'options': {
                 'indexAxis': 'y',
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -427,7 +427,7 @@ class DashboardVisualizer:
             'options': {
                 'indexAxis': 'y',
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -497,7 +497,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -559,7 +559,7 @@ class DashboardVisualizer:
             },
             'options': {
                 'responsive': True,
-                'maintainAspectRatio': False,
+                'maintainAspectRatio': True,
                 'plugins': {
                     'title': {
                         'display': True,
@@ -610,7 +610,7 @@ class DashboardVisualizer:
                 },
                 'options': {
                     'responsive': True,
-                    'maintainAspectRatio': False,
+                    'maintainAspectRatio': True,
                     'plugins': {
                         'title': {
                             'display': True,
@@ -655,7 +655,7 @@ class DashboardVisualizer:
                     },
                     'options': {
                         'responsive': True,
-                        'maintainAspectRatio': False,
+                        'maintainAspectRatio': True,
                         'plugins': {
                             'title': {
                                 'display': True,

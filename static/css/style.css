@@ -288,14 +288,14 @@ body {
     box-shadow: var(--shadow-md);
     margin-bottom: 2.5rem;
     position: relative;
-    height: 400px;
-    max-height: 400px;
-    overflow: hidden;
+    /* height: 400px; */ /* コメントアウトまたは削除 */
+    /* max-height: 400px; */ /* コメントアウトまたは削除 */
+    /* overflow: hidden; */ /* 削除 */
 }
 
 /* 特定のチャートコンテナの高さ */
 #distributionChartContainer {
-    min-height: 240px;
+    min-height: 450px; /* 値を増やす */
 }
 
 #stylistRateChartContainer {
