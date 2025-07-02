@@ -166,6 +166,13 @@ class DataProcessor:
         # 氏名の正規化
         df = self._clean_names(df)
         
+        # スタイリスト名の正規化（スペース除去）
+        if 'スタイリスト名' in df.columns:
+            logger.info("スタイリスト名の正規化（スペース除去）を実行します。")
+            df['スタイリスト名'] = df['スタイリスト名'].apply(
+                lambda x: re.sub(r'[\s　]+', '', str(x)) if pd.notna(x) else x
+            )
+        
         return df
     
     def _clean_visit_date(self, df: pd.DataFrame) -> pd.DataFrame:
