@@ -53,7 +53,7 @@ def test_data_processor():
         
         print(f"[S1] CSV読み込み・処理後の件数: {len(df_s1)}件")
         
-        # 検証1: ステータス '済み' のみ、かつ有効な日付のレコードが残る
+        # 検証1: ステータスによるフィルタは廃止したため、全有効日付レコードが残ることを検証する
         # 山田(2件), 佐藤(1件), 田中(1件) の計4件のはず (invalid-dateとキャンセルは除外)
         expected_rows_s1 = 4
         if len(df_s1) == expected_rows_s1:

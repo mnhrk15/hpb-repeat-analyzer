@@ -148,11 +148,11 @@ class DataProcessor:
         df = self._clean_visit_date(df) # '来店日' カラムがdatetime型になる
         
         # ステータスフィルタ (ステータスカラムが存在する場合のみ)
-        if 'ステータス' in df.columns:
-            df = df[df['ステータス'] == '済み'].copy()
-            logger.info(f"ステータス='済み'でフィルタ: {len(df)}/{original_count}件 (フィルタ前件数は来店日処理後)")
-        else:
-            logger.warning("'ステータス' カラムが存在しないため、フィルタリングをスキップします。")
+        # if 'ステータス' in df.columns:
+        #     df = df[df['ステータス'] == '済み'].copy()
+        #     logger.info(f"ステータス='済み'でフィルタ: {len(df)}/{original_count}件 (フィルタ前件数は来店日処理後)")
+        # else:
+        #     logger.warning("'ステータス' カラムが存在しないため、フィルタリングをスキップします。")
 
         # 真偽値フラグのクリーニング (「このサロンに行くのは初めてですか？」など)
         df = self._clean_boolean_flags(df)
