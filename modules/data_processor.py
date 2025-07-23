@@ -448,8 +448,8 @@ class DataProcessor:
         # 2. 条件を定義
         # 条件A: この来店が全期間初回来店である
         condition_A = (df_copy['来店日'] == df_copy['全期間初回来店日'])
-        # 条件B: この来店で「初めてフラグ」がTrueである (事前にブール型になっている想定)
-        condition_B = (df_copy[first_visit_flag_col] == True)
+        # 条件B: この来店で「初めてフラグ」がTrueまたは空白（None/NaN）である
+        condition_B = (df_copy[first_visit_flag_col] == True) | (df_copy[first_visit_flag_col].isna())
         # 条件C: この来店が指定期間内である
         condition_C_period = (df_copy['来店日'] >= start_dt) & (df_copy['来店日'] <= end_dt)
 
@@ -457,7 +457,7 @@ class DataProcessor:
         true_new_customer_visits = df_copy[condition_A & condition_B & condition_C_period]
 
         if true_new_customer_visits.empty:
-            logger.info(f"指定期間 ({start_date} - {end_date}) に「初めてフラグTrue」かつ「全期間で初回来店」の顧客は見つかりませんでした。")
+            logger.info(f"指定期間 ({start_date} - {end_date}) に「初めてフラグTrueまたは空白」かつ「全期間で初回来店」の顧客は見つかりませんでした。")
             final_new_customers = pd.DataFrame()
         else:
             # 条件を満たす来店は顧客ごとにユニークのはず (初回来店かつフラグTrueはその顧客にとって1回のみ)
